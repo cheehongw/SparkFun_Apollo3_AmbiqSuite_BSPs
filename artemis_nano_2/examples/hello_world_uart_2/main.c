@@ -118,10 +118,10 @@ const am_hal_uart_config_t g_sUartConfig =
     //
     // Buffers
     //
-    .pui8TxBuffer = g_pui8TxBuffer_1,
-    .ui32TxBufferSize = sizeof(g_pui8TxBuffer_1),
-    .pui8RxBuffer = g_pui8RxBuffer_1,
-    .ui32RxBufferSize = sizeof(g_pui8RxBuffer_1),
+    .pui8TxBuffer = g_pui8TxBuffer,
+    .ui32TxBufferSize = sizeof(g_pui8TxBuffer),
+    .pui8RxBuffer = g_pui8RxBuffer,
+    .ui32RxBufferSize = sizeof(g_pui8RxBuffer),
 };
 
 
@@ -145,10 +145,10 @@ const am_hal_uart_config_t g_sUartConfig_1 =
     //
     // Buffers
     //
-    .pui8TxBuffer = g_pui8TxBuffer,
-    .ui32TxBufferSize = sizeof(g_pui8TxBuffer),
-    .pui8RxBuffer = g_pui8RxBuffer,
-    .ui32RxBufferSize = sizeof(g_pui8RxBuffer),
+    .pui8TxBuffer = g_pui8TxBuffer_1,
+    .ui32TxBufferSize = sizeof(g_pui8TxBuffer_1),
+    .pui8RxBuffer = g_pui8RxBuffer_1,
+    .ui32RxBufferSize = sizeof(g_pui8RxBuffer_1),
 };
 
 //*****************************************************************************
