@@ -52,7 +52,7 @@
 #include "am_mcu_apollo.h"
 #include "am_bsp.h"
 #include "am_util.h"
-
+#include "lfsr.c"
 
 //*****************************************************************************
 //
@@ -78,6 +78,45 @@ volatile uint32_t g_ui32UARTRxIndex = 0;
 volatile bool g_bRxTimeoutFlag = false;
 volatile bool g_bCmdProcessedFlag = false;
 
+
+
+//*****************************************************************************
+//
+//! @brief UART-based byte sending function
+//!
+//! This function is used for sending arbitrary bytes via the UART, which for some
+//! MCU devices may be multi-module.
+//!
+//! @return None.
+//
+//*****************************************************************************
+void
+am_bsp_uart_send_bytes(void *pHandle, uint8_t buf, uint32_t ui32numOfBytes)
+{
+
+    uint32_t ui32BytesWritten;
+    //
+    // Print the string via the UART.
+    //
+    const am_hal_uart_transfer_t sUartWrite =
+    {
+        .ui32Direction = AM_HAL_UART_WRITE,
+        .pui8Data = &buf,
+        .ui32NumBytes = ui32numOfBytes,
+        .ui32TimeoutMs = AM_HAL_UART_WAIT_FOREVER,
+        .pui32BytesTransferred = &ui32BytesWritten,
+    };
+
+    am_hal_uart_transfer(pHandle, &sUartWrite);
+
+    if (ui32BytesWritten != ui32numOfBytes)
+    {
+        //
+        // Couldn't send the whole string!!
+        //
+        while(1);
+    }
+} // am_bsp_uart_string_print()
 
 //*****************************************************************************
 //
@@ -507,6 +546,7 @@ main(void)
     // Disable the UART and interrupts
     //
     am_hal_uart_tx_flush(phUART);
+    lfsr = PRBS_IV;
 
 #ifdef AM_BSP_NUM_LEDS
     bool led_state = false;
@@ -522,8 +562,10 @@ main(void)
     am_util_stdio_printf_init(uart1_print);
     
     uint32_t uy;
-    for (uy = 0; uy < 1; uy++) {
-        am_util_stdio_printf("\tHello to the other side!"); 
+    for (uy = 0; uy < 100; uy++) {
+        // am_util_stdio_printf("\tHello to the other side!"); 
+        prbs();
+        am_bsp_uart_send_bytes(phUART1, &lfsr, 4); 
         
         // send random bit sequence
         // send a number seq or alternating 1/0s
@@ -540,15 +582,16 @@ main(void)
     }
 
 
-    while(1) {
-
-    };
-
 #ifdef AM_BSP_NUM_LEDS
     for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
         am_devices_led_off(am_bsp_psLEDs, ux);
     }
 #endif // AM_BSP_NUM_LEDS
+
+
+    while(1) {
+
+    };
 
     CHECK_ERRORS(am_hal_uart_power_control(phUART, AM_HAL_SYSCTRL_DEEPSLEEP, false));
     CHECK_ERRORS(am_hal_uart_power_control(phUART1, AM_HAL_SYSCTRL_DEEPSLEEP, false));
