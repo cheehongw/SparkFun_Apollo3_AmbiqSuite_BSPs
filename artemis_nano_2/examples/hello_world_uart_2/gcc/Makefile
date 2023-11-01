@@ -205,6 +205,7 @@ SRC+= am_util_delay.c
 SRC+= am_util_faultisr.c
 SRC+= am_util_id.c
 SRC+= am_util_stdio.c
+SRC+= am_devices_led.c
 SRC+=
 
 # VPATH (Add paths to where your source files are located)
@@ -213,6 +214,7 @@ VPATH+= $(PROJECTPATH)/src
 VPATH+= $(SDKPATH)/utils
 VPATH+= $(BOARDPATH)/examples/hello_world_uart_2
 VPATH+= $(COMMONPATH)/tools_sfe/templates
+VPATH+= $(SDKPATH)/devices
 VPATH+=
 
 # LIBS (Precompiled libraries to include in the linker step)

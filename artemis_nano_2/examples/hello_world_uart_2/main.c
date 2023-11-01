@@ -53,6 +53,32 @@
 #include "am_bsp.h"
 #include "am_util.h"
 
+
+//*****************************************************************************
+//
+// Custom data type.
+// Note - am_uart_buffer was simply derived from the am_hal_iom_buffer macro.
+//
+//*****************************************************************************
+#define am_uart_buffer(A)                                                   \
+union                                                                   \
+  {                                                                       \
+    uint32_t words[(A + 3) >> 2];                                       \
+      uint8_t bytes[A];                                                   \
+  }
+
+//*****************************************************************************
+//
+// Global Variables
+//
+//*****************************************************************************
+am_uart_buffer(1024) g_psWriteData;
+
+volatile uint32_t g_ui32UARTRxIndex = 0;
+volatile bool g_bRxTimeoutFlag = false;
+volatile bool g_bCmdProcessedFlag = false;
+
+
 //*****************************************************************************
 //
 // UART handles.
@@ -88,7 +114,7 @@ error_handler(uint32_t ui32ErrorStatus)
 //
 //*****************************************************************************
 uint8_t g_pui8TxBuffer[256];
-uint8_t g_pui8RxBuffer[2];
+uint8_t g_pui8RxBuffer[256];
 
 uint8_t g_pui8TxBuffer_1[256];
 uint8_t g_pui8RxBuffer_1[2];
@@ -153,26 +179,48 @@ const am_hal_uart_config_t g_sUartConfig_1 =
 
 //*****************************************************************************
 //
-// UART0 interrupt handler.
+// Handle incoming bytes
 //
 //*****************************************************************************
-void
-am_uart_isr(void)
-{
-    //
-    // Service the FIFOs as necessary, and clear the interrupts.
-    //
-    uint32_t ui32Status, ui32Idle;
-    am_hal_uart_interrupt_status_get(phUART, &ui32Status, true);
-    am_hal_uart_interrupt_clear(phUART, ui32Status);
-    am_hal_uart_interrupt_service(phUART, ui32Status, &ui32Idle);
+
+void processPackets(uint8_t *pBuf, uint32_t len) {
+
+    uint32_t ui32BytesWritten;
+
+    
+    const am_hal_uart_transfer_t sUartWrite =
+    {
+        .ui32Direction = AM_HAL_UART_WRITE,
+        .pui8Data = pBuf,
+        .ui32NumBytes = len,
+        .ui32TimeoutMs = 0,
+        .pui32BytesTransferred = &ui32BytesWritten,
+    };
+    CHECK_ERRORS(am_hal_uart_transfer(phUART1, &sUartWrite));
+
+    am_hal_uart_tx_flush(phUART1);
+
+    g_ui32UARTRxIndex = 0;
+
 }
 
 //*****************************************************************************
 //
-// UART1 interrupt handler.
+// UART0 interrupt handler.
 //
 //*****************************************************************************
+// void
+// am_uart_isr(void)
+// {
+//     //
+//     // Service the FIFOs as necessary, and clear the interrupts.
+//     //
+//     uint32_t ui32Status, ui32Idle;
+//     am_hal_uart_interrupt_status_get(phUART, &ui32Status, true);
+//     am_hal_uart_interrupt_clear(phUART, ui32Status);
+//     am_hal_uart_interrupt_service(phUART, ui32Status, &ui32Idle);
+// }
+
 void
 am_uart1_isr(void)
 {
@@ -183,6 +231,47 @@ am_uart1_isr(void)
     am_hal_uart_interrupt_status_get(phUART1, &ui32Status, true);
     am_hal_uart_interrupt_clear(phUART1, ui32Status);
     am_hal_uart_interrupt_service(phUART1, ui32Status, &ui32Idle);
+}
+
+//*****************************************************************************
+//
+// UART1 interrupt handler.
+//
+//*****************************************************************************
+void 
+am_uart_isr(void)
+{
+  uint32_t ui32Status;
+  uint8_t * pData = (uint8_t *) &(g_psWriteData.bytes[g_ui32UARTRxIndex]);
+
+  //
+  // Read the masked interrupt status from the UART.
+  //
+  am_hal_uart_interrupt_status_get(phUART, &ui32Status, true);
+  am_hal_uart_interrupt_clear(phUART, ui32Status);
+  am_hal_uart_interrupt_service(phUART, ui32Status, 0);
+
+  //
+  // If there's an RX interrupt, handle it in a way that preserves the
+  // timeout interrupt on gaps between packets.
+  //
+  if (ui32Status & (AM_HAL_UART_INT_RX_TMOUT | AM_HAL_UART_INT_RX))
+  {
+    uint32_t ui32BytesRead;
+
+    am_hal_uart_transfer_t sRead =
+    {
+      .ui32Direction = AM_HAL_UART_READ,
+      .pui8Data = (uint8_t *) &(g_psWriteData.bytes[g_ui32UARTRxIndex]),
+      .ui32NumBytes = 16,
+      .ui32TimeoutMs = 1,
+      .pui32BytesTransferred = &ui32BytesRead,
+    };
+
+    am_hal_uart_transfer(phUART, &sRead);
+    g_ui32UARTRxIndex += ui32BytesRead;
+    processPackets(pData, ui32BytesRead);
+  }
 }
 
 //*****************************************************************************
@@ -419,9 +508,47 @@ main(void)
     //
     am_hal_uart_tx_flush(phUART);
 
+#ifdef AM_BSP_NUM_LEDS
+    bool led_state = false;
+    uint32_t ux;
+    uint32_t ui32GPIONumber;
+    for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
+        ui32GPIONumber = am_bsp_psLEDs[ux].ui32GPIONumber;
+        am_hal_gpio_pinconfig(ui32GPIONumber, g_AM_HAL_GPIO_OUTPUT);
+        am_devices_led_on(am_bsp_psLEDs, ux);
+    }
+#endif // AM_BSP_NUM_LEDS
+
     am_util_stdio_printf_init(uart1_print);
-    am_util_stdio_printf("\tHello to the other side!");
-    am_hal_uart_tx_flush(phUART1);
+    
+    uint32_t uy;
+    for (uy = 0; uy < 1; uy++) {
+        am_util_stdio_printf("\tHello to the other side!"); 
+        
+        // send random bit sequence
+        // send a number seq or alternating 1/0s
+        // have a sort of preamble and control bits
+        // then followed by payload
+        // then followed by CRC
+        // - something to write about under communication protocols
+        // - how do we quantify the number of errors? bit-error rate?
+        // - measuring bit-error rate (how does it vary with wire length?)
+        // - power consumption
+        
+
+        am_hal_uart_tx_flush(phUART1);
+    }
+
+
+    while(1) {
+
+    };
+
+#ifdef AM_BSP_NUM_LEDS
+    for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
+        am_devices_led_off(am_bsp_psLEDs, ux);
+    }
+#endif // AM_BSP_NUM_LEDS
 
     CHECK_ERRORS(am_hal_uart_power_control(phUART, AM_HAL_SYSCTRL_DEEPSLEEP, false));
     CHECK_ERRORS(am_hal_uart_power_control(phUART1, AM_HAL_SYSCTRL_DEEPSLEEP, false));
