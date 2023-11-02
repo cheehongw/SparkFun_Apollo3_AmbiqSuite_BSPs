@@ -52,7 +52,7 @@
 #include "am_mcu_apollo.h"
 #include "am_bsp.h"
 #include "am_util.h"
-
+#include "lfsr.c"
 
 //*****************************************************************************
 //
@@ -73,10 +73,24 @@ union                                                                   \
 //
 //*****************************************************************************
 am_uart_buffer(1024) g_psWriteData;
+uint8_t      word_buf[4];
+static uint32_t bitErrors = 0;
 
 volatile uint32_t g_ui32UARTRxIndex = 0;
 volatile bool g_bRxTimeoutFlag = false;
 volatile bool g_bCmdProcessedFlag = false;
+
+
+
+typedef enum
+{
+  STATE_IDLE,
+  STATE_HEADER,
+  STATE_LEN,
+  STATE_IV,
+  STATE_DATA,
+  STATE_COMPLETE
+} RxState_t;
 
 
 //*****************************************************************************
@@ -183,8 +197,7 @@ const am_hal_uart_config_t g_sUartConfig_1 =
 //
 //*****************************************************************************
 
-void processPackets(uint8_t *pBuf, uint32_t len) {
-
+void writeToCOMUART(uint8_t *pBuf, uint32_t len) {
     uint32_t ui32BytesWritten;
 
     
@@ -199,6 +212,114 @@ void processPackets(uint8_t *pBuf, uint32_t len) {
     CHECK_ERRORS(am_hal_uart_transfer(phUART, &sUartWrite));
 
     am_hal_uart_tx_flush(phUART);
+
+    g_ui32UARTRxIndex = 0;
+}
+
+void countBits() {
+
+    uint32_t i32 = word_buf[3] | (word_buf[2] << 8) | (word_buf[1] << 16) | (word_buf[0] << 24);
+    prbs();
+    uint32_t value = lfsr & i32;
+    // am_util_stdio_printf("counting bits: %02x   %02x    %02x\n\n", i32, lfsr, value);
+    bitErrors += bitcount(value);
+}
+
+void setIV() {
+
+    uint32_t iv = word_buf[3] | (word_buf[2] << 8) | (word_buf[1] << 16) | (word_buf[0] << 24);
+    lfsr = ~iv;
+    am_util_stdio_printf("setting IV to: %02x\n\n", lfsr);
+}
+
+void processPackets(uint8_t *pBuf, uint32_t len) {
+    static uint8_t      stateRx     = STATE_IDLE;
+    static uint32_t     streamLen  = 0;
+    static uint8_t      wordNow     = 0;
+    static uint32_t     preamble_seen = 0;
+    static uint8_t      prev_byte = 0;
+
+    uint8_t   dataByte;
+
+
+    while(len)
+    {
+
+        dataByte = *pBuf;
+        am_util_stdio_printf("%02X", dataByte);
+
+        if (dataByte == 0x00 && (dataByte == prev_byte || preamble_seen == 0)) {
+
+            preamble_seen += 1;
+            if (preamble_seen == 4) {
+                am_util_stdio_printf("preamble seen... RESETTING\n\n");
+
+                stateRx = STATE_HEADER;
+                prev_byte = dataByte;
+                pBuf++;
+                len--;
+                wordNow = 0;
+                continue;
+            }
+        } else {
+            // am_util_stdio_printf("preamble_resetting...\n");
+            preamble_seen = 0;
+        }
+
+
+        if (stateRx == STATE_IDLE) {
+            pBuf++;
+            len--;  
+        }
+        else if (stateRx == STATE_HEADER) {
+            word_buf[wordNow] = dataByte;
+            wordNow++;
+            pBuf++;
+            len--;
+
+            if (wordNow == 4) {
+
+                wordNow = 0;
+                streamLen = word_buf[3] | (word_buf[2] << 8) | (word_buf[1] << 16) | (word_buf[0] << 24);
+                stateRx = STATE_IV;
+                am_util_stdio_printf("Setting Header Len %d\n", streamLen);
+            }
+
+        }
+        else if (stateRx == STATE_IV) {
+            word_buf[wordNow] = dataByte;
+            wordNow++;
+            pBuf++;
+            len--;
+
+            if (wordNow == 4) {
+                am_util_stdio_printf("Setting IV \n");
+
+                wordNow = 0;
+                setIV();
+                stateRx = STATE_DATA;
+            }
+        } else if (stateRx == STATE_DATA) {
+            word_buf[wordNow] = dataByte;
+            wordNow++;
+            pBuf++;
+            len--;
+            if (wordNow == 4) {
+                wordNow = 0;
+                streamLen--;
+                countBits();
+            }
+
+            if (streamLen == 0) {
+                stateRx = STATE_IDLE;
+                am_util_stdio_printf("\n\nbitErrors: %d \n\n", bitErrors);
+
+            }
+        }
+
+        prev_byte = dataByte;
+
+    }
 
     g_ui32UARTRxIndex = 0;
 
@@ -507,6 +628,8 @@ main(void)
     // Disable the UART and interrupts
     //
     am_hal_uart_tx_flush(phUART);
+    lfsr = PRBS_IV;
+
 
 #ifdef AM_BSP_NUM_LEDS
     bool led_state = false;

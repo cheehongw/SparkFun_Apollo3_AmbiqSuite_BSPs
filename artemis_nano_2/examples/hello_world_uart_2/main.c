@@ -77,8 +77,7 @@ am_uart_buffer(1024) g_psWriteData;
 volatile uint32_t g_ui32UARTRxIndex = 0;
 volatile bool g_bRxTimeoutFlag = false;
 volatile bool g_bCmdProcessedFlag = false;
-
-
+#define STREAM_SIZE 10000
 
 //*****************************************************************************
 //
@@ -91,7 +90,7 @@ volatile bool g_bCmdProcessedFlag = false;
 //
 //*****************************************************************************
 void
-am_bsp_uart_send_bytes(void *pHandle, uint8_t buf, uint32_t ui32numOfBytes)
+am_bsp_uart_send_bytes(void *pHandle, uint8_t *buf, uint32_t ui32numOfBytes)
 {
 
     uint32_t ui32BytesWritten;
@@ -101,7 +100,7 @@ am_bsp_uart_send_bytes(void *pHandle, uint8_t buf, uint32_t ui32numOfBytes)
     const am_hal_uart_transfer_t sUartWrite =
     {
         .ui32Direction = AM_HAL_UART_WRITE,
-        .pui8Data = &buf,
+        .pui8Data = buf,
         .ui32NumBytes = ui32numOfBytes,
         .ui32TimeoutMs = AM_HAL_UART_WAIT_FOREVER,
         .pui32BytesTransferred = &ui32BytesWritten,
@@ -560,12 +559,35 @@ main(void)
 #endif // AM_BSP_NUM_LEDS
 
     am_util_stdio_printf_init(uart1_print);
+
+    uint8_t PREAMBLE[4] = {0x00, 0x00, 0x00, 0x00}; 
+    
+    am_bsp_uart_send_bytes(phUART1, PREAMBLE, 4);
+
+    am_hal_uart_tx_flush(phUART1);
+
+    uint8_t STREAM_LEN[4];
+    STREAM_LEN[0] = (STREAM_SIZE >> 24) & 0xFF;
+    STREAM_LEN[1] = (STREAM_SIZE >> 16) & 0xFF;
+    STREAM_LEN[2] = (STREAM_SIZE >> 8) & 0xFF;
+    STREAM_LEN[3] = STREAM_SIZE & 0xFF;
+
+    am_bsp_uart_send_bytes(phUART1, STREAM_LEN, 4);
+    am_hal_uart_tx_flush(phUART1);
     
     uint32_t uy;
-    for (uy = 0; uy < 100; uy++) {
+    for (uy = 0; uy <= STREAM_SIZE; uy++) {
         // am_util_stdio_printf("\tHello to the other side!"); 
-        prbs();
-        am_bsp_uart_send_bytes(phUART1, &lfsr, 4); 
+        uint32_t output = prbs();
+        uint8_t value[4];
+
+        value[0] = (output >> 24) & 0xFF;
+        value[1] = (output >> 16) & 0xFF;
+        value[2] = (output >> 8) & 0xFF;
+        value[3] = output & 0xFF;
+
+
+        am_bsp_uart_send_bytes(phUART1, value, 4); 
         
         // send random bit sequence
         // send a number seq or alternating 1/0s
@@ -578,7 +600,7 @@ main(void)
         // - power consumption
         
 
-        am_hal_uart_tx_flush(phUART1);
+        // am_hal_uart_tx_flush(phUART1);
     }
 
 
