@@ -72,14 +72,16 @@ union                                                                   \
 // Global Variables
 //
 //*****************************************************************************
-am_uart_buffer(1024) g_psWriteData;
+am_uart_buffer(2048) g_psWriteData;
 uint8_t      word_buf[4];
-static uint32_t bitErrors = 0;
+volatile uint32_t bitErrors = 0;
+volatile uint32_t streamLen  = 0;
+
 
 volatile uint32_t g_ui32UARTRxIndex = 0;
 volatile bool g_bRxTimeoutFlag = false;
 volatile bool g_bCmdProcessedFlag = false;
-
+#define BAUD_RATE 1500000
 
 
 typedef enum
@@ -131,7 +133,7 @@ uint8_t g_pui8TxBuffer[256];
 uint8_t g_pui8RxBuffer[2];
 
 uint8_t g_pui8TxBuffer_1[256];
-uint8_t g_pui8RxBuffer_1[2048];
+uint8_t g_pui8RxBuffer_1[8192];
 
 //*****************************************************************************
 //
@@ -170,7 +172,7 @@ const am_hal_uart_config_t g_sUartConfig_1 =
     //
     // Standard UART settings: 115200-8-N-1
     //
-    .ui32BaudRate = 9600,
+    .ui32BaudRate = BAUD_RATE,
     .ui32DataBits = AM_HAL_UART_DATA_BITS_8,
     .ui32Parity = AM_HAL_UART_PARITY_NONE,
     .ui32StopBits = AM_HAL_UART_ONE_STOP_BIT,
@@ -229,12 +231,11 @@ void setIV() {
 
     uint32_t iv = word_buf[3] | (word_buf[2] << 8) | (word_buf[1] << 16) | (word_buf[0] << 24);
     lfsr = ~iv;
-    am_util_stdio_printf("setting IV to: %02x\n\n", lfsr);
+    // am_util_stdio_printf("setting IV to: %02x\n\n", lfsr);
 }
 
 void processPackets(uint8_t *pBuf, uint32_t len) {
     static uint8_t      stateRx     = STATE_IDLE;
-    static uint32_t     streamLen  = 0;
     static uint8_t      wordNow     = 0;
     static uint32_t     preamble_seen = 0;
     static uint8_t      prev_byte = 0;
@@ -246,12 +247,14 @@ void processPackets(uint8_t *pBuf, uint32_t len) {
     {
 
         dataByte = *pBuf;
-        am_util_stdio_printf("%02X", dataByte);
+        // am_util_stdio_printf("%02X", dataByte);
 
         if (dataByte == 0x00 && (dataByte == prev_byte || preamble_seen == 0)) {
 
             preamble_seen += 1;
             if (preamble_seen == 4) {
+                am_util_stdio_printf("streamLen remaining: %d, error count: %d \n", streamLen, bitErrors);
+                bitErrors = 0;
                 am_util_stdio_printf("preamble seen... RESETTING\n\n");
 
                 stateRx = STATE_HEADER;
@@ -293,7 +296,7 @@ void processPackets(uint8_t *pBuf, uint32_t len) {
             len--;
 
             if (wordNow == 4) {
-                am_util_stdio_printf("Setting IV \n");
+                // am_util_stdio_printf("Setting IV \n");
 
                 wordNow = 0;
                 setIV();
@@ -384,8 +387,8 @@ am_uart1_isr(void)
     {
       .ui32Direction = AM_HAL_UART_READ,
       .pui8Data = (uint8_t *) &(g_psWriteData.bytes[g_ui32UARTRxIndex]),
-      .ui32NumBytes = 16,
-      .ui32TimeoutMs = 1,
+      .ui32NumBytes = 32,
+      .ui32TimeoutMs = 0,
       .pui32BytesTransferred = &ui32BytesRead,
     };
 

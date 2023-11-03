@@ -77,7 +77,8 @@ am_uart_buffer(1024) g_psWriteData;
 volatile uint32_t g_ui32UARTRxIndex = 0;
 volatile bool g_bRxTimeoutFlag = false;
 volatile bool g_bCmdProcessedFlag = false;
-#define STREAM_SIZE 10000
+#define STREAM_SIZE 100000
+#define BAUD_RATE 1500000
 
 //*****************************************************************************
 //
@@ -194,7 +195,7 @@ const am_hal_uart_config_t g_sUartConfig_1 =
     //
     // Standard UART settings: 115200-8-N-1
     //
-    .ui32BaudRate = 9600,
+    .ui32BaudRate = BAUD_RATE,
     .ui32DataBits = AM_HAL_UART_DATA_BITS_8,
     .ui32Parity = AM_HAL_UART_PARITY_NONE,
     .ui32StopBits = AM_HAL_UART_ONE_STOP_BIT,
@@ -302,7 +303,7 @@ am_uart_isr(void)
       .ui32Direction = AM_HAL_UART_READ,
       .pui8Data = (uint8_t *) &(g_psWriteData.bytes[g_ui32UARTRxIndex]),
       .ui32NumBytes = 16,
-      .ui32TimeoutMs = 1,
+      .ui32TimeoutMs = 0,
       .pui32BytesTransferred = &ui32BytesRead,
     };
 
@@ -400,9 +401,6 @@ uart1_print(char *pcStr)
 int
 main(void)
 {
-    am_util_id_t sIdDevice;
-    uint32_t ui32StrBuf;
-
     //
     // Set the clock frequency.
     //
@@ -439,6 +437,7 @@ main(void)
 
     am_hal_gpio_pinconfig(AM_BSP_GPIO_UART1_TX_39, g_AM_BSP_GPIO_UART1_TX_39);
     am_hal_gpio_pinconfig(AM_BSP_GPIO_UART1_RX_40, g_AM_BSP_GPIO_UART1_RX_40);
+     am_hal_gpio_pinconfig(AM_HAL_PIN_38_M3MOSI, g_AM_HAL_GPIO_OUTPUT);
 
     //
     // Enable interrupts.
@@ -458,47 +457,8 @@ main(void)
     //
     am_util_stdio_terminal_clear();
     am_util_stdio_printf("Hello World 2!\n\n");
+    am_util_stdio_printf("Desired Baud Rate: %d, Actual Baud Rate %d\n", BAUD_RATE, ((am_hal_uart_state_t *) phUART1)->ui32BaudRate);
 
-    //
-    // Print the device info.
-    //
-    am_util_id_device(&sIdDevice);
-    am_util_stdio_printf("Vendor Name: %s\n", sIdDevice.pui8VendorName);
-    am_util_stdio_printf("Device type: %s\n", sIdDevice.pui8DeviceName);
-
-    am_util_stdio_printf("Qualified: %s\n",
-                         sIdDevice.sMcuCtrlDevice.ui32Qualified ?
-                         "Yes" : "No");
-
-    am_util_stdio_printf("Device Info:\n"
-                         "\tPart number: 0x%08X\n"
-                         "\tChip ID0:    0x%08X\n"
-                         "\tChip ID1:    0x%08X\n"
-                         "\tRevision:    0x%08X (Rev%c%c)\n",
-                         sIdDevice.sMcuCtrlDevice.ui32ChipPN,
-                         sIdDevice.sMcuCtrlDevice.ui32ChipID0,
-                         sIdDevice.sMcuCtrlDevice.ui32ChipID1,
-                         sIdDevice.sMcuCtrlDevice.ui32ChipRev,
-                         sIdDevice.ui8ChipRevMaj, sIdDevice.ui8ChipRevMin );
-
-    //
-    // If not a multiple of 1024 bytes, append a plus sign to the KB.
-    //
-    ui32StrBuf = ( sIdDevice.sMcuCtrlDevice.ui32FlashSize % 1024 ) ? '+' : 0;
-    am_util_stdio_printf("\tFlash size:  %7d (%d KB%s)\n",
-                         sIdDevice.sMcuCtrlDevice.ui32FlashSize,
-                         sIdDevice.sMcuCtrlDevice.ui32FlashSize / 1024,
-                         &ui32StrBuf);
-
-    ui32StrBuf = ( sIdDevice.sMcuCtrlDevice.ui32SRAMSize % 1024 ) ? '+' : 0;
-    am_util_stdio_printf("\tSRAM size:   %7d (%d KB%s)\n\n",
-                         sIdDevice.sMcuCtrlDevice.ui32SRAMSize,
-                         sIdDevice.sMcuCtrlDevice.ui32SRAMSize / 1024,
-                         &ui32StrBuf);
-
-    //
-    // Set the main print interface to use the UART print function we defined.
-    //
     
     //
     // Print the compiler version.
@@ -545,10 +505,10 @@ main(void)
     // Disable the UART and interrupts
     //
     am_hal_uart_tx_flush(phUART);
+    am_util_delay_ms(2000);
     lfsr = PRBS_IV;
 
 #ifdef AM_BSP_NUM_LEDS
-    bool led_state = false;
     uint32_t ux;
     uint32_t ui32GPIONumber;
     for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
@@ -556,6 +516,7 @@ main(void)
         am_hal_gpio_pinconfig(ui32GPIONumber, g_AM_HAL_GPIO_OUTPUT);
         am_devices_led_on(am_bsp_psLEDs, ux);
     }
+        am_hal_gpio_state_write(AM_HAL_PIN_38_M3MOSI, AM_HAL_GPIO_OUTPUT_SET);
 #endif // AM_BSP_NUM_LEDS
 
     am_util_stdio_printf_init(uart1_print);
@@ -574,6 +535,16 @@ main(void)
 
     am_bsp_uart_send_bytes(phUART1, STREAM_LEN, 4);
     am_hal_uart_tx_flush(phUART1);
+    am_util_delay_ms(2000);
+
+
+#ifdef AM_BSP_NUM_LEDS
+    for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
+        am_devices_led_off(am_bsp_psLEDs, ux);
+    }
+    am_hal_gpio_state_write(AM_HAL_PIN_38_M3MOSI, AM_HAL_GPIO_OUTPUT_CLEAR);
+
+#endif // AM_BSP_NUM_LEDS
     
     uint32_t uy;
     for (uy = 0; uy <= STREAM_SIZE; uy++) {
@@ -606,14 +577,18 @@ main(void)
 
 #ifdef AM_BSP_NUM_LEDS
     for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
-        am_devices_led_off(am_bsp_psLEDs, ux);
+        am_devices_led_on(am_bsp_psLEDs, ux);
     }
+    am_hal_gpio_state_write(AM_HAL_PIN_38_M3MOSI, AM_HAL_GPIO_OUTPUT_SET);
+
 #endif // AM_BSP_NUM_LEDS
 
+    am_util_stdio_printf_init(uart_print);
+    am_util_stdio_printf("Done...");
+    am_hal_uart_tx_flush(phUART);
 
-    while(1) {
 
-    };
+
 
     CHECK_ERRORS(am_hal_uart_power_control(phUART, AM_HAL_SYSCTRL_DEEPSLEEP, false));
     CHECK_ERRORS(am_hal_uart_power_control(phUART1, AM_HAL_SYSCTRL_DEEPSLEEP, false));

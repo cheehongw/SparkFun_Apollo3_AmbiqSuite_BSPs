@@ -1,7 +1,7 @@
 #include <sys/types.h>
 
 
-#define	PRBS_IV		0x02
+#define	PRBS_IV		0x01
 
 
 static uint32_t prbs(void);
