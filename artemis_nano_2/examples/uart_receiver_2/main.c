@@ -239,6 +239,7 @@ void processPackets(uint8_t *pBuf, uint32_t len) {
     static uint8_t      wordNow     = 0;
     static uint32_t     preamble_seen = 0;
     static uint8_t      prev_byte = 0;
+    static uint32_t     total_len = 0;
 
     uint8_t   dataByte;
 
@@ -253,9 +254,11 @@ void processPackets(uint8_t *pBuf, uint32_t len) {
 
             preamble_seen += 1;
             if (preamble_seen == 4) {
-                am_util_stdio_printf("streamLen remaining: %d, error count: %d \n", streamLen, bitErrors);
-                bitErrors = 0;
-                am_util_stdio_printf("preamble seen... RESETTING\n\n");
+                am_util_stdio_printf("-------------\n");
+                am_util_stdio_printf("Current Total Length %d, Cumulative error count: %d \n", 
+                    total_len, bitErrors);
+                // bitErrors = 0;
+                am_util_stdio_printf("preamble seen...\n\n");
 
                 stateRx = STATE_HEADER;
                 prev_byte = dataByte;
@@ -284,6 +287,7 @@ void processPackets(uint8_t *pBuf, uint32_t len) {
 
                 wordNow = 0;
                 streamLen = word_buf[3] | (word_buf[2] << 8) | (word_buf[1] << 16) | (word_buf[0] << 24);
+                total_len += streamLen;
                 stateRx = STATE_IV;
                 am_util_stdio_printf("Setting Header Len %d\n", streamLen);
             }
@@ -315,7 +319,7 @@ void processPackets(uint8_t *pBuf, uint32_t len) {
 
             if (streamLen == 0) {
                 stateRx = STATE_IDLE;
-                am_util_stdio_printf("\n\nbitErrors: %d \n\n", bitErrors);
+                // am_util_stdio_printf("\n\nbitErrors: %d \n\n", bitErrors);
 
             }
         }

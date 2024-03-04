@@ -505,89 +505,94 @@ main(void)
     // Disable the UART and interrupts
     //
     am_hal_uart_tx_flush(phUART);
-    am_util_delay_ms(2000);
-    lfsr = PRBS_IV;
 
-#ifdef AM_BSP_NUM_LEDS
-    uint32_t ux;
-    uint32_t ui32GPIONumber;
-    for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
-        ui32GPIONumber = am_bsp_psLEDs[ux].ui32GPIONumber;
-        am_hal_gpio_pinconfig(ui32GPIONumber, g_AM_HAL_GPIO_OUTPUT);
-        am_devices_led_on(am_bsp_psLEDs, ux);
-    }
-        am_hal_gpio_state_write(AM_HAL_PIN_38_M3MOSI, AM_HAL_GPIO_OUTPUT_SET);
-#endif // AM_BSP_NUM_LEDS
 
     am_util_stdio_printf_init(uart1_print);
+    uint32_t loop_count = 0;
 
-    uint8_t PREAMBLE[4] = {0x00, 0x00, 0x00, 0x00}; 
+    while(true) {
+        loop_count++;
+        am_util_delay_ms(2000);
+        lfsr = PRBS_IV;
+
+    #ifdef AM_BSP_NUM_LEDS
+        uint32_t ux;
+        uint32_t ui32GPIONumber;
+        for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
+            ui32GPIONumber = am_bsp_psLEDs[ux].ui32GPIONumber;
+            am_hal_gpio_pinconfig(ui32GPIONumber, g_AM_HAL_GPIO_OUTPUT);
+            am_devices_led_on(am_bsp_psLEDs, ux);
+        }
+            am_hal_gpio_state_write(AM_HAL_PIN_38_M3MOSI, AM_HAL_GPIO_OUTPUT_SET);
+    #endif // AM_BSP_NUM_LEDS
+
+        uint8_t PREAMBLE[4] = {0x00, 0x00, 0x00, 0x00}; 
     
-    am_bsp_uart_send_bytes(phUART1, PREAMBLE, 4);
+        am_bsp_uart_send_bytes(phUART1, PREAMBLE, 4);
 
-    am_hal_uart_tx_flush(phUART1);
-
-    uint8_t STREAM_LEN[4];
-    STREAM_LEN[0] = (STREAM_SIZE >> 24) & 0xFF;
-    STREAM_LEN[1] = (STREAM_SIZE >> 16) & 0xFF;
-    STREAM_LEN[2] = (STREAM_SIZE >> 8) & 0xFF;
-    STREAM_LEN[3] = STREAM_SIZE & 0xFF;
-
-    am_bsp_uart_send_bytes(phUART1, STREAM_LEN, 4);
-    am_hal_uart_tx_flush(phUART1);
-    am_util_delay_ms(2000);
-
-
-#ifdef AM_BSP_NUM_LEDS
-    for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
-        am_devices_led_off(am_bsp_psLEDs, ux);
-    }
-    am_hal_gpio_state_write(AM_HAL_PIN_38_M3MOSI, AM_HAL_GPIO_OUTPUT_CLEAR);
-
-#endif // AM_BSP_NUM_LEDS
-    
-    uint32_t uy;
-    for (uy = 0; uy <= STREAM_SIZE; uy++) {
-        // am_util_stdio_printf("\tHello to the other side!"); 
-        uint32_t output = prbs();
-        uint8_t value[4];
-
-        value[0] = (output >> 24) & 0xFF;
-        value[1] = (output >> 16) & 0xFF;
-        value[2] = (output >> 8) & 0xFF;
-        value[3] = output & 0xFF;
-
-
-        am_bsp_uart_send_bytes(phUART1, value, 4); 
-        
-        // send random bit sequence
-        // send a number seq or alternating 1/0s
-        // have a sort of preamble and control bits
-        // then followed by payload
-        // then followed by CRC
-        // - something to write about under communication protocols
-        // - how do we quantify the number of errors? bit-error rate?
-        // - measuring bit-error rate (how does it vary with wire length?)
-        // - power consumption
+        am_hal_uart_tx_flush(phUART1);
         
 
-        // am_hal_uart_tx_flush(phUART1);
+        uint8_t STREAM_LEN[4];
+        STREAM_LEN[0] = (STREAM_SIZE >> 24) & 0xFF;
+        STREAM_LEN[1] = (STREAM_SIZE >> 16) & 0xFF;
+        STREAM_LEN[2] = (STREAM_SIZE >> 8) & 0xFF;
+        STREAM_LEN[3] = STREAM_SIZE & 0xFF;
+
+        am_bsp_uart_send_bytes(phUART1, STREAM_LEN, 4);
+        am_hal_uart_tx_flush(phUART1);
+        am_util_delay_ms(2000);
+
+
+    #ifdef AM_BSP_NUM_LEDS
+        for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
+            am_devices_led_off(am_bsp_psLEDs, ux);
+        }
+        am_hal_gpio_state_write(AM_HAL_PIN_38_M3MOSI, AM_HAL_GPIO_OUTPUT_CLEAR);
+
+    #endif // AM_BSP_NUM_LEDS
+        
+        uint32_t uy;
+        for (uy = 0; uy <= STREAM_SIZE; uy++) {
+            // am_util_stdio_printf("\tHello to the other side!"); 
+            uint32_t output = prbs();
+            uint8_t value[4];
+
+            value[0] = (output >> 24) & 0xFF;
+            value[1] = (output >> 16) & 0xFF;
+            value[2] = (output >> 8) & 0xFF;
+            value[3] = output & 0xFF;
+
+
+            am_bsp_uart_send_bytes(phUART1, value, 4); 
+            
+            // send random bit sequence
+            // send a number seq or alternating 1/0s
+            // have a sort of preamble and control bits
+            // then followed by payload
+            // then followed by CRC
+            // - something to write about under communication protocols
+            // - how do we quantify the number of errors? bit-error rate?
+            // - measuring bit-error rate (how does it vary with wire length?)
+            // - power consumption
+            
+
+            // am_hal_uart_tx_flush(phUART1);
+        }
+
+
+    #ifdef AM_BSP_NUM_LEDS
+        for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
+            am_devices_led_on(am_bsp_psLEDs, ux);
+        }
+        am_hal_gpio_state_write(AM_HAL_PIN_38_M3MOSI, AM_HAL_GPIO_OUTPUT_SET);
+
+    #endif // AM_BSP_NUM_LEDS
+
+        am_util_stdio_printf_init(uart_print);
+        am_util_stdio_printf("%d Done...\n", loop_count);
+        am_hal_uart_tx_flush(phUART);
     }
-
-
-#ifdef AM_BSP_NUM_LEDS
-    for (ux = 0; ux < AM_BSP_NUM_LEDS; ux++) {
-        am_devices_led_on(am_bsp_psLEDs, ux);
-    }
-    am_hal_gpio_state_write(AM_HAL_PIN_38_M3MOSI, AM_HAL_GPIO_OUTPUT_SET);
-
-#endif // AM_BSP_NUM_LEDS
-
-    am_util_stdio_printf_init(uart_print);
-    am_util_stdio_printf("Done...");
-    am_hal_uart_tx_flush(phUART);
-
-
 
 
     CHECK_ERRORS(am_hal_uart_power_control(phUART, AM_HAL_SYSCTRL_DEEPSLEEP, false));
