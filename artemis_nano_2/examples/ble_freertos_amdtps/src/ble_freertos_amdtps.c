@@ -70,7 +70,7 @@
 void
 enable_print_interface(void)
 {
-#if 0
+#if 1
     //
     // Initialize the printf interface for UART output.
     //
