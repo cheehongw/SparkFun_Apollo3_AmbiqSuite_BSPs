@@ -37,10 +37,46 @@
 # This is part of revision release_sdk_3_1_1-10cda4b5e0 of the AmbiqSuite Development Package.
 #
 #******************************************************************************
+#******************************************************************************
+#
+# User Options
+#
+#******************************************************************************
+
+# You can override these values on the command line e.g. make bootload COM_PORT=/dev/cu***
+# COM_PORT is the serial port to use for uploading. For example COM#### on Windows or /dev/cu.usbserial-#### on *nix
+COM_PORT		?=
+# ASB_UPLOAD_BAUD is the baud rate setting of the Ambiq Secue Bootloader (ASB) as it is configured on the Apollo3. Defautls to 115200 if unset
+ASB_UPLOAD_BAUD	?=
+# SVL_UPLOAD_BAUD is the baud rate setting of the SparkFun Variable Loader (SVL). Defaults to 921600 if unset
+SVL_UPLOAD_BAUD	?=
+# PYTHON3 should evaluate to a call to the Python3 executable on your machine
+PYTHON3			?=
+
+# *Optionally* specify absolute paths to the SDK and the BSP
+# You can do this on the command line - e.g. make bootload SDKPATH=~/$AMBIQ_SDK_ROOT_PATH
+# Make sure to use / instead of \ when on Windows
+SDKPATH			?=# Set as the path to the SDK root if not located at ../../../../..
+COMMONPATH		?=# Set as the path to the BSP common folder if not located at ../../../../common
+BOARDPATH		?=# Set as the path to the board if not located at ../../..
+PROJECTPATH		?=# Set as the path to the project if not located at ..
+BOARD			?=# If using a SparkFun board you can simply provide the name e.g. redboard_artemis_atp
+
+### Project Settings
 TARGET := ble_freertos_amdtps
 COMPILERNAME := gcc
-PROJECT := ble_freertos_amdtps_gcc
+PROJECT := $(TARGET)_gcc
 CONFIG := bin
+
+#******************************************************************************
+#
+# Warning Messages
+#
+#******************************************************************************
+### Bootloader Tools
+ASB_UPLOADER=$(PYTHON3) $(COMMONPATH)/tools_sfe/asb/asb.py
+SVL_UPLOADER=$(PYTHON3) $(COMMONPATH)/tools_sfe/svl/svl.py
+
 
 SHELL:=/bin/bash
 
@@ -48,6 +84,71 @@ SHELL:=/bin/bash
 ifneq ($(VERBOSE),1)
 Q:=@
 endif
+
+ifeq ($(BOARD),)
+    $(warning warning: no BOARD specified, will fall back to BOARDPATH for arbitrary bsp locations)
+else
+    BOARDPATH=../../../../$(BOARD)
+    $(warning Using BOARD=$(BOARD) at $(BOARDPATH))
+endif
+
+ifeq ($(COM_PORT),)
+    COM_PORT=COM4
+    $(warning warning: you have not defined COM_PORT. Assuming it is COM4)
+endif
+ifeq ($(PYTHON3),)
+    PYTHON3=python3
+    $(warning warning: you have not defined PYTHON3. assuming it is accessible by 'python3')
+endif
+ifeq ($(ASB_UPLOAD_BAUD),)
+    ASB_UPLOAD_BAUD=115200
+    $(warning defaulting to 115200 baud for ASB)
+endif
+ifeq ($(SVL_UPLOAD_BAUD),)
+    SVL_UPLOAD_BAUD=921600
+    $(warning defaulting to 921600 baud for SVL)
+endif
+
+ifeq ($(SDKPATH),)
+    SDKPATH			=../../../../..
+    $(warning warning: you have not defined SDKPATH so will continue assuming that the SDK root is at $(SDKPATH))
+else
+# When the SDKPATH is given export it
+export SDKPATH
+endif
+
+ifeq ($(COMMONPATH),)
+    COMMONPATH			=../../../../common
+    $(warning warning: you have not defined COMMONPATH so will continue assuming that the COMMON root is at $(COMMONPATH))
+else
+# When the COMMONPATH is given export it
+export COMMONPATH
+endif
+
+ifeq ($(BOARDPATH),)
+    $(error Error: BOARDPATH must be provided)
+else
+# Ensure that boardpath does not include a trailing '/'
+ifeq ($(notdir $(BOARDPATH)),)
+    override BOARDPATH:=$(patsubst %/, %,$(BOARDPATH))
+    $(warning BOARDPATH had a trivial 'notdir' so we tried changing it to: $(BOARDPATH))
+endif
+BOARD=$(notdir $(BOARDPATH))
+# When the BOARDPATH is given export it
+export BOARDPATH
+endif
+
+ifeq ($(PROJECTPATH),)
+    PROJECTPATH			=..
+    $(warning warning: you have not defined PROJECTPATH so will continue assuming that the PROJECT root is at $(PROJECTPATH))
+else
+# When the PROJECTPATH is given export it
+export PROJECTPATH
+endif
+
+CONFIG := $(PROJECTPATH)/gcc/$(BOARD)/bin
+$(warning CONFIG=$(CONFIG))
+
 
 #### Setup ####
 
@@ -123,19 +224,19 @@ INCLUDES+= -I../../../../..
 INCLUDES+= -I../../../../../third_party/cordio/ble-host/sources/hci/ambiq
 INCLUDES+= -I../../../../../third_party/cordio/ble-host/sources/stack/smp
 INCLUDES+= -I../../../../../third_party/FreeRTOSv10.1.1/Source/include
-INCLUDES+= -I../../../../../ambiq_ble/apps/amdtps
 INCLUDES+= -I../../../../../third_party/cordio/ble-profiles/sources/profiles/gatt
-INCLUDES+= -I../../../../../ambiq_ble/services
 INCLUDES+= -I../../../../../third_party/cordio/ble-host/sources/stack/cfg
-INCLUDES+= -I../../../../../ambiq_ble/profiles/amdtpcommon
 INCLUDES+= -I../../../../../third_party/cordio/ble-profiles/sources/profiles/uribeacon
 INCLUDES+= -I../../../../../third_party/cordio/ble-profiles/sources/profiles/gap
 INCLUDES+= -I../../../../../third_party/cordio/ble-host/sources/stack/dm
 INCLUDES+= -I../../../../../third_party/cordio/ble-profiles/sources/profiles/include
-INCLUDES+= -I../../../../../ambiq_ble/profiles/amdtps
 INCLUDES+= -I../../../../../third_party/cordio/ble-profiles/sources/profiles/hid
 INCLUDES+= -I../../../../../mcu/apollo3
 INCLUDES+= -I../../../../../third_party/cordio/ble-host/sources/stack/hci
+INCLUDES+= -I../src/apps/amdtps
+INCLUDES+= -I../src/services
+INCLUDES+= -I../src/amdtps
+INCLUDES+= -I../src/profiles/amdtpcommon
 
 VPATH = ../../../../../third_party/cordio/ble-host/sources/sec/common
 VPATH+=:../src
@@ -144,23 +245,19 @@ VPATH+=:../../../../../third_party/FreeRTOSv10.1.1/Source
 VPATH+=:../../../../../third_party/cordio/ble-host/sources/hci/ambiq/apollo3
 VPATH+=:../../../../../third_party/cordio/ble-host/sources/hci/ambiq
 VPATH+=:../../../../../third_party/cordio/ble-host/sources/stack/smp
-VPATH+=:../../../../../ambiq_ble/apps/amdtps
 VPATH+=:../../../../../third_party/cordio/wsf/sources/util
 VPATH+=:../../../../../third_party/cordio/ble-profiles/sources/profiles/gatt
 VPATH+=:../../../../../third_party/cordio/ble-host/sources/stack/att
 VPATH+=:../../../../../third_party/cordio/wsf/sources/port/freertos
 VPATH+=:../../../../../utils
 VPATH+=:../../../../../third_party/cordio/ble-profiles/sources/profiles/bas
-VPATH+=:../../../../../ambiq_ble/services
 VPATH+=:../../../../../third_party/cordio/ble-host/sources/stack/cfg
-VPATH+=:../../../../../ambiq_ble/profiles/amdtpcommon
 VPATH+=:../../../../../third_party/cordio/ble-profiles/sources/apps/hidapp
 VPATH+=:../../../../../third_party/cordio/ble-profiles/sources/profiles/gap
 VPATH+=:../../../../../third_party/FreeRTOSv10.1.1/Source/portable/MemMang
 VPATH+=:../../../../../third_party/cordio/ble-host/sources/stack/dm
 VPATH+=:../../../../../third_party/uecc
 VPATH+=:../../../../../third_party/cordio/ble-host/sources/sec/uecc
-VPATH+=:../../../../../ambiq_ble/profiles/amdtps
 VPATH+=:../../../../../third_party/cordio/ble-profiles/sources/apps/app/common
 VPATH+=:../../../../../third_party/cordio/ble-profiles/sources/profiles/hid
 VPATH+=:../../../../../devices
@@ -168,6 +265,10 @@ VPATH+=:../../../../../third_party/cordio/ble-profiles/sources/services
 VPATH+=:../../../../../third_party/cordio/ble-profiles/sources/apps/app
 VPATH+=:../../../../../third_party/FreeRTOSv10.1.1/Source/portable/GCC/AMapollo2
 VPATH+=:../../../../../third_party/cordio/ble-host/sources/stack/hci
+VPATH+=:../src/apps/amdtps
+VPATH+=:../src/services
+VPATH+=:../src/profiles/amdtpcommon
+VPATH+=:../src/profiles/amdtps
 
 SRC = sec_aes.c
 SRC += sec_aes_rev.c
@@ -392,7 +493,10 @@ CPFLAGS = -Obinary
 ODFLAGS = -S
 
 #### Rules ####
-all: directories $(CONFIG)/$(TARGET).bin
+all: asb
+asb: directories $(CONFIG)/$(TARGET)_asb.bin
+svl: directories $(CONFIG)/$(TARGET)_svl.bin
+
 
 directories: $(CONFIG)
 
@@ -400,36 +504,54 @@ $(CONFIG):
 	@mkdir -p $@
 
 $(CONFIG)/%.o: %.c $(CONFIG)/%.d
-	@echo " Compiling $(COMPILERNAME) $<"
-	$(Q) $(CC) -c $(CFLAGS) $< -o $@
+	@echo " Compiling $(COMPILERNAME) $<" ;\
+	$(CC) -c $(CFLAGS) $< -o $@
 
 $(CONFIG)/%.o: %.s $(CONFIG)/%.d
-	@echo " Assembling $(COMPILERNAME) $<"
-	$(Q) $(CC) -c $(CFLAGS) $< -o $@
+	@echo " Assembling $(COMPILERNAME) $<" ;\
+	$(CC) -c $(CFLAGS) $< -o $@
 
-$(CONFIG)/$(TARGET).axf: $(OBJS) $(LIBS)
-	@echo " Linking $(COMPILERNAME) $@"
-	$(Q) $(CC) -Wl,-T,$(LINKER_FILE) -o $@ $(OBJS) $(LFLAGS)
+$(CONFIG)/$(TARGET)_asb.axf: LINKER_FILE := $(COMMONPATH)/examples/ble_freertos_tag/gcc/ble_freertos_tag_asb.ld
+$(CONFIG)/$(TARGET)_asb.axf: $(OBJS) $(LIBS)
+	@echo " Linking $(COMPILERNAME) $@ with script $(LINKER_FILE)";\
+	$(CC) -Wl,-T,$(LINKER_FILE) -o $@ $(OBJS) $(LFLAGS)
 
-$(CONFIG)/$(TARGET).bin: $(CONFIG)/$(TARGET).axf
-	@echo " Copying $(COMPILERNAME) $@..."
-	$(Q) $(CP) $(CPFLAGS) $< $@
-	$(Q) $(OD) $(ODFLAGS) $< > $(CONFIG)/$(TARGET).lst
-	$(Q) $(SIZE) $(OBJS) $(LIBS) $(CONFIG)/$(TARGET).axf >$(CONFIG)/$(TARGET).size
+$(CONFIG)/$(TARGET)_svl.axf: LINKER_FILE := $(COMMONPATH)/examples/ble_freertos_tag/gcc/ble_freertos_tag_svl.ld
+$(CONFIG)/$(TARGET)_svl.axf: $(OBJS) $(LIBS)
+	@echo " Linking $(COMPILERNAME) $@ with script $(LINKER_FILE)";\
+	$(CC) -Wl,-T,$(LINKER_FILE) -o $@ $(OBJS) $(LFLAGS)
+
+$(CONFIG)/$(TARGET)_%.bin: $(CONFIG)/$(TARGET)_%.axf
+	@echo " Copying $(COMPILERNAME) $@..." ;\
+	$(CP) $(CPFLAGS) $< $@ ;\
+	$(OD) $(ODFLAGS) $< > $(CONFIG)/$(TARGET).lst
+
+bootload_asb: directories $(CONFIG)/$(TARGET)_asb.bin
+	@echo "Uploading using the Ambiq Secure Bootloader"
+	$(ASB_UPLOADER) --bin $(CONFIG)/$(TARGET)_asb.bin --load-address-blob 0x20000 --magic-num 0xCB -o $(CONFIG)/$(TARGET) --version 0x0 --load-address-wired 0xC000 -i 6 --options 0x1 -b $(ASB_UPLOAD_BAUD) -port $(COM_PORT) -r 2 -v 
+
+bootload_svl: directories $(CONFIG)/$(TARGET)_svl.bin
+	@echo "Uploading using the SparkFun Variable Loader"
+	$(SVL_UPLOADER) $(COM_PORT) -f $(CONFIG)/$(TARGET)_svl.bin -b $(SVL_UPLOAD_BAUD) -v
+bootload: bootload_svl
 
 clean:
 	@echo "Cleaning..." ;\
-	$(Q) $(RM) -f $(OBJS) $(DEPS) \
+	$(RM) -f $(OBJS) $(DEPS) \
 	    $(CONFIG)/$(TARGET).bin $(CONFIG)/$(TARGET).axf \
-	    $(CONFIG)/$(TARGET).lst $(CONFIG)/$(TARGET).map
+	    $(CONFIG)/$(TARGET).lst $(CONFIG)/$(TARGET).map \
+		$(CONFIG)/$(TARGET)_svl.bin $(CONFIG)/$(TARGET)_svl.axf \
+	    $(CONFIG)/$(TARGET)_svl.lst $(CONFIG)/$(TARGET)_svl.map \
+	    $(CONFIG)/$(TARGET)_asb.bin $(CONFIG)/$(TARGET)_asb.axf \
+	    $(CONFIG)/$(TARGET)_asb.lst $(CONFIG)/$(TARGET)_asb.map
 
 $(CONFIG)/%.d: ;
 
-../../../bsp/gcc/bin/libam_bsp.a:
-	$(MAKE) -C ../../../bsp
+$(SDKPATH)/mcu/apollo3/hal/gcc/bin/libam_hal.a:
+	$(MAKE) -C $(SDKPATH)/mcu/apollo3/hal
 
-../../../../../mcu/apollo3/hal/gcc/bin/libam_hal.a:
-	$(MAKE) -C ../../../../../mcu/apollo3/hal
+$(BOARDPATH)/bsp/gcc/bin/libam_bsp.a:
+	$(MAKE) -C $(BOARDPATH)/bsp
 
 # Automatically include any generated dependencies
 -include $(DEPS)
