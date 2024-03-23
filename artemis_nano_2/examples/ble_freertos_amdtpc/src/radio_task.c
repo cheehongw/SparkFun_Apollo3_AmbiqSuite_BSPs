@@ -144,6 +144,7 @@ static wsfBufPoolDesc_t g_psPoolDescriptors[WSF_BUF_POOLS] =
 wsfHandlerId_t g_uartDataReadyHandlerId;
 void uart_data_ready_handler(wsfEventMask_t event, wsfMsgHdr_t *pMsg)
 {
+    am_util_debug_printf("Invoking uart_data_ready_handler\r\n");
     BleMenuRx();
 }
 #endif
@@ -240,7 +241,6 @@ exactle_stack_init(void)
 #endif
 }
 
-#ifdef BLE_MENU
 //*****************************************************************************
 //
 // UART interrupt handler.
@@ -278,6 +278,7 @@ am_uart_isr(void)
         wsfMsgHdr_t  *pMsg;
         if ( (pMsg = WsfMsgAlloc(0)) != NULL )
         {
+            // am_menu_printf("Invoking wsfmsgalloc\r\n");
             WsfMsgSend(g_uartDataReadyHandlerId, pMsg);
         }
     }
@@ -286,7 +287,6 @@ am_uart_isr(void)
         menuRxData[menuRxDataLen++] = rxData;
     }
 }
-#endif
 
 //*****************************************************************************
 //

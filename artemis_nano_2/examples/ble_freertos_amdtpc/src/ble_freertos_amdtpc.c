@@ -63,8 +63,9 @@
 #include "ble_freertos_amdtpc.h"
 #include "ble_menu.h"
 #include "rtos.h"
+#include "check_errors.c"
 
-#ifdef BLE_MENU
+// #ifdef BLE_MENU
 void *UART;
 
 //*****************************************************************************
@@ -100,6 +101,8 @@ enable_print_interface(void)
 void
 setup_serial(int32_t i32Module)
 {
+    am_util_debug_printf("Setting up serial\n");
+
     //
     // Enable a UART to use for the menu.
     //
@@ -129,7 +132,7 @@ setup_serial(int32_t i32Module)
         .ui32RxBufferSize = 0,
     };
 
-    am_hal_uart_initialize(0, &UART);
+    CHECK_ERRORS(am_hal_uart_initialize(0, &UART));
     am_hal_uart_power_control(UART, AM_HAL_SYSCTRL_WAKE, false);
     am_hal_uart_configure(UART, &sUartConfig);
 
@@ -137,18 +140,18 @@ setup_serial(int32_t i32Module)
     // Make sure the UART interrupt priority is set low enough to allow
     // FreeRTOS API calls.
     //
-    NVIC_SetPriority(UART0_IRQn, NVIC_configMAX_SYSCALL_INTERRUPT_PRIORITY);
-
 
     am_hal_gpio_pinconfig(AM_BSP_GPIO_COM_UART_TX, g_AM_BSP_GPIO_COM_UART_TX);
     am_hal_gpio_pinconfig(AM_BSP_GPIO_COM_UART_RX, g_AM_BSP_GPIO_COM_UART_RX);
 
+    NVIC_SetPriority(UART0_IRQn, NVIC_configMAX_SYSCALL_INTERRUPT_PRIORITY);
     //
     // Enable UART RX interrupts manually.
-    //
-    am_hal_uart_interrupt_clear(UART, AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT);
-    am_hal_uart_interrupt_enable(UART, AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT);
+    // RETURNS 2 ??
+    am_util_debug_printf("Serial status: %d\n", am_hal_uart_interrupt_clear(UART, AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT));
+    am_util_debug_printf("Serial status: %d\n", am_hal_uart_interrupt_enable(UART, AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT));
     NVIC_EnableIRQ(UART0_IRQn);
+    
 }
 
 
@@ -187,15 +190,15 @@ am_menu_printf(const char *pcFmt, ...)
     //
     return ui32NumChars;
 }
-#else
+// #else
 
-uint32_t
-am_menu_printf(const char *pcFmt, ...)
-{
-    return 0;
-}
+// uint32_t
+// am_menu_printf(const char *pcFmt, ...)
+// {
+//     return 0;
+// }
 
-#endif
+// #endif
 
 //*****************************************************************************
 //
@@ -286,19 +289,16 @@ main(void)
     //
     // Enable printing to the console.
     //
-#ifdef AM_DEBUG_PRINTF
+// #ifdef AM_DEBUG_PRINTF
     enable_print_interface();
-#endif
+// #endif
 
     //
     // Initialize plotting interface.
     //
     am_util_debug_printf("FreeRTOS AMDTP Example\n");
 
-#ifdef BLE_MENU
     setup_serial(0);
-#endif
-
     //
     // Run the application.
     //
