@@ -68,6 +68,7 @@
 // #ifdef BLE_MENU
 void *UART;
 
+#define ENABLE_DEBUG 1
 //*****************************************************************************
 //
 // Enable printing to the console.
@@ -76,11 +77,12 @@ void *UART;
 void
 enable_print_interface(void)
 {
-#if 0
+#if ENABLE_DEBUG
     //
     // Initialize the printf interface for UART output.
     //
     am_bsp_uart_printf_enable();
+    UART = get_g_sCOMUART();
 #else
     //
     // Initialize a debug printing interface.
@@ -132,10 +134,16 @@ setup_serial(int32_t i32Module)
         .ui32RxBufferSize = 0,
     };
 
-    CHECK_ERRORS(am_hal_uart_initialize(0, &UART));
+    #if ENABLE_DEBUG
+    NVIC_SetPriority(UART0_IRQn, NVIC_configMAX_SYSCALL_INTERRUPT_PRIORITY);
+    am_util_debug_printf("Serial status: %d\n", am_hal_uart_interrupt_clear(get_g_sCOMUART(), AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT));
+    am_util_debug_printf("Serial status: %d\n", am_hal_uart_interrupt_enable(get_g_sCOMUART(), AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT));
+    NVIC_EnableIRQ(UART0_IRQn);
+
+    #else
+    CHECK_ERRORS(am_hal_uart_initialize(i32Module, &UART));
     am_hal_uart_power_control(UART, AM_HAL_SYSCTRL_WAKE, false);
     am_hal_uart_configure(UART, &sUartConfig);
-
     //
     // Make sure the UART interrupt priority is set low enough to allow
     // FreeRTOS API calls.
@@ -145,13 +153,10 @@ setup_serial(int32_t i32Module)
     am_hal_gpio_pinconfig(AM_BSP_GPIO_COM_UART_RX, g_AM_BSP_GPIO_COM_UART_RX);
 
     NVIC_SetPriority(UART0_IRQn, NVIC_configMAX_SYSCALL_INTERRUPT_PRIORITY);
-    //
-    // Enable UART RX interrupts manually.
-    // RETURNS 2 ??
     am_util_debug_printf("Serial status: %d\n", am_hal_uart_interrupt_clear(UART, AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT));
     am_util_debug_printf("Serial status: %d\n", am_hal_uart_interrupt_enable(UART, AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT));
     NVIC_EnableIRQ(UART0_IRQn);
-    
+    #endif
 }
 
 
@@ -183,8 +188,11 @@ am_menu_printf(const char *pcFmt, ...)
         .pui32BytesTransferred = 0,
     };
 
+    #if ENABLE_DEBUG
+    am_hal_uart_transfer(get_g_sCOMUART(), &sSend); 
+    #else
     am_hal_uart_transfer(UART, &sSend);
-
+    #endif
     //
     // return the number of characters printed.
     //
