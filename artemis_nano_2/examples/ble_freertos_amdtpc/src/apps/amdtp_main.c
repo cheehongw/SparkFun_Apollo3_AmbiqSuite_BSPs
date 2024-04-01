@@ -633,22 +633,25 @@ void AmdtpcConnOpen(uint8_t idx)
 
 bool sendDataContinuously = false;
 bool g_requestServerSendStop = false;
-void AmdtpcSendTestData(void)
+void AmdtpcSendTestData(dmConnId_t connId)
 {
     static uint8_t counter = 0;
     uint8_t data[236] = {0};
     eAmdtpStatus_t status;
 
+    APP_TRACE_INFO1("AmdtpcSendTestData() with connId = %d\n", connId);
+
     sendDataContinuously = true;
     data[1] = counter;
-    status = AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, false, true, data, sizeof(data));
+    status = AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, false, true, data, sizeof(data), connId);
     if (status != AMDTP_STATUS_SUCCESS)
     {
         APP_TRACE_INFO1("AmdtpcSendTestData() failed, status = %d\n", status);
     }
     else
     {
-        counter++;
+      APP_TRACE_INFO1("AmdtpcSendTestData() succeeded, status = %d\n", status);
+      counter++;
     }
 }
 
@@ -657,21 +660,21 @@ void AmdtpcSendTestDataStop(void)
     sendDataContinuously = false;
 }
 
-void AmdtpcRequestServerSend(void)
+void AmdtpcRequestServerSend(dmConnId_t connId)
 {
     uint8_t data[4] = {0};
     eAmdtpStatus_t status;
     g_requestServerSendStop = false;
 
     data[0] = 1;
-    status = AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, false, true, data, sizeof(data));
+    status = AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, false, true, data, sizeof(data), connId);
     if (status != AMDTP_STATUS_SUCCESS)
     {
         APP_TRACE_INFO1("AmdtpcRequestServerSend() failed, status = %d\n", AmdtpcSendTestData);
     }
 }
 
-void AmdtpcRequestServerSendStop(void)
+void AmdtpcRequestServerSendStop(dmConnId_t connId)
 {
     uint8_t data[4] = {0};
     eAmdtpStatus_t status;
@@ -679,20 +682,21 @@ void AmdtpcRequestServerSendStop(void)
     g_requestServerSendStop = true;
 
     data[0] = 2;
-    status = AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, false, true, data, sizeof(data));
+    status = AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, false, true, data, sizeof(data), connId);
     if (status != AMDTP_STATUS_SUCCESS)
     {
         APP_TRACE_INFO1("AmdtpcRequestServerSend() failed, status = %d\n", AmdtpcSendTestData);
     }
 }
 
-void amdtpDtpRecvCback(uint8_t * buf, uint16_t len)
+void amdtpDtpRecvCback(uint8_t * buf, uint16_t len, dmConnId_t connId)
 {
     // reception callback
     // print the received data
 #if 1
     APP_TRACE_INFO0("-----------AMDTP Received data--------------\n");
     APP_TRACE_INFO3("len = %d, buf[0] = %d, buf[1] = %d\n", len, buf[0], buf[1]);
+    APP_TRACE_INFO1("connId = %d\n", connId); 
 #endif
 #ifdef MEASURE_THROUGHPUT
     gTotalDataBytesRecev += len;
@@ -704,12 +708,12 @@ void amdtpDtpRecvCback(uint8_t * buf, uint16_t len)
 #endif
 }
 
-void amdtpDtpTransCback(eAmdtpStatus_t status)
+void amdtpDtpTransCback(eAmdtpStatus_t status, dmConnId_t connId)
 {
     APP_TRACE_INFO1("amdtpDtpTransCback status = %d\n", status);
     if (status == AMDTP_STATUS_SUCCESS && sendDataContinuously)
     {
-        AmdtpcSendTestData();
+        AmdtpcSendTestData(connId);
     }
 }
 
@@ -800,7 +804,7 @@ static void amdtpcDiscCback(dmConnId_t connId, uint8_t status)
 
     case APP_DISC_CFG_CMPL:
       AppDiscComplete(connId, status);
-      amdtpc_start(pAmdtpcHdlList[AMDTP_RX_HDL_IDX], pAmdtpcHdlList[AMDTP_ACK_HDL_IDX], pAmdtpcHdlList[AMDTP_TX_DATA_HDL_IDX], AMDTP_TIMER_IND);
+      amdtpc_start(connId, pAmdtpcHdlList[AMDTP_RX_HDL_IDX], pAmdtpcHdlList[AMDTP_ACK_HDL_IDX], pAmdtpcHdlList[AMDTP_TX_DATA_HDL_IDX], AMDTP_TIMER_IND);
       break;
 
     case APP_DISC_CFG_CONN_START:

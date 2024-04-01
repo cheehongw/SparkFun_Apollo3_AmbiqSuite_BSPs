@@ -96,13 +96,13 @@ void
 amdtpc_init(wsfHandlerId_t handlerId, amdtpRecvCback_t recvCback, amdtpTransCback_t transCback);
 
 void
-amdtpc_start(uint16_t rxHdl, uint16_t ackHdl, uint16_t txHdl, uint8_t timerEvt);
+amdtpc_start(dmConnId_t connId, uint16_t rxHdl, uint16_t ackHdl, uint16_t txHdl, uint8_t timerEvt);
 
 void
 amdtpc_proc_msg(wsfMsgHdr_t *pMsg);
 
 eAmdtpStatus_t
-AmdtpcSendPacket(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t *buf, uint16_t len);
+AmdtpcSendPacket(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t *buf, uint16_t len, dmConnId_t connId);
 
 #ifdef __cplusplus
 };

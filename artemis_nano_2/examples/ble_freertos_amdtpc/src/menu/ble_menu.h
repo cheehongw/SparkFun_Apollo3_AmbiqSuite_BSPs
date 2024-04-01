@@ -105,6 +105,8 @@ typedef struct
     eBleMenuId menuId;
     eGapMenuId gapMenuSelected;
     eGattMenuId gattMenuSelected;
+    eAmdtpMenuId amdtpMenuSelected;
+    uint8_t targetNodeIdx;
 }sBleMenuCb;
 
 extern char menuRxData[20];

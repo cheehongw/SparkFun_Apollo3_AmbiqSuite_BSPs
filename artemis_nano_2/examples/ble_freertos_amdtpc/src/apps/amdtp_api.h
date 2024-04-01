@@ -51,6 +51,7 @@
 #define AMDTP_API_H
 
 #include "wsf_os.h"
+#include "dm_api.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,10 +102,10 @@ void AmdtpcHandler(wsfEventMask_t event, wsfMsgHdr_t *pMsg);
 void AmdtpcScanStart(void);
 void AmdtpcScanStop(void);
 void AmdtpcConnOpen(uint8_t idx);
-void AmdtpcSendTestData(void);
+void AmdtpcSendTestData(dmConnId_t connId);
 void AmdtpcSendTestDataStop(void);
-void AmdtpcRequestServerSend(void);
-void AmdtpcRequestServerSendStop(void);
+void AmdtpcRequestServerSend(dmConnId_t connId);
+void AmdtpcRequestServerSendStop(dmConnId_t connId);
 
 #ifdef __cplusplus
 };

@@ -51,8 +51,11 @@
 #include "wsf_types.h"
 #include "amdtp_api.h"
 #include "app_api.h"
+#include "db_rec.h"
+
 
 char menuRxData[20];
+dmConnId_t pConnIdList[DM_CONN_MAX];
 uint32_t menuRxDataLen = 0;
 
 sBleMenuCb bleMenuCb;
@@ -129,6 +132,23 @@ static void showScanResults(void)
     am_menu_printf("-----------------------------------------------------\r\n");
 }
 
+static void showConnectedNodes(void)
+{
+    uint8_t numOfConnections = AppConnOpenList(pConnIdList);
+
+    am_menu_printf("--------------------Connected Nodes--------------------\r\n");
+    for (int i = 0; i < numOfConnections; i++)
+    {
+        appDbHdl_t appDbHdl = AppDbGetHdl(pConnIdList[i]);
+        appDbRec_t *devInfo = (appDbRec_t *) appDbHdl;
+        
+        am_menu_printf("%d : %d %02x%02x%02x%02x%02x%02x \r\n", i, devInfo->addrType,
+        devInfo->peerAddr[0], devInfo->peerAddr[1], devInfo->peerAddr[2], devInfo->peerAddr[3], devInfo->peerAddr[4], devInfo->peerAddr[5]);
+        
+    }
+    am_menu_printf("-----------------------------------------------------\r\n");
+}
+
 static void handleGAPSlection(void)
 {
     eGapMenuId id;
@@ -175,13 +195,26 @@ static void handleGAPSlection(void)
 static void handleAMDTPSlection(void)
 {
     eAmdtpMenuId id;
-    id = (eAmdtpMenuId)(menuRxData[0] - '0');
+    if (bleMenuCb.amdtpMenuSelected == AMDTP_MENU_ID_NONE) {
+        id = (eAmdtpMenuId)(menuRxData[0] - '0');
+    } else {
+        id = bleMenuCb.amdtpMenuSelected;
+    }
 
     switch (id)
     {
         case AMDTP_MENU_ID_SEND:
             am_menu_printf("send data to server\r\n");
-            AmdtpcSendTestData();
+            if (bleMenuCb.amdtpMenuSelected == AMDTP_MENU_ID_NONE) {
+                am_menu_printf("choose an idx from connected nodes to send data:\r\n");
+                showConnectedNodes();
+                bleMenuCb.amdtpMenuSelected = AMDTP_MENU_ID_SEND;
+            } else {
+                uint8_t idx = menuRxData[0] - '0';
+                bleMenuCb.targetNodeIdx = idx;
+                AmdtpcSendTestData(pConnIdList[bleMenuCb.targetNodeIdx]);
+                bleMenuCb.amdtpMenuSelected = AMDTP_MENU_ID_NONE;
+            }
             break;
         case AMDTP_MENU_ID_SEND_STOP:
             am_menu_printf("send data to server stop\r\n");
@@ -189,11 +222,20 @@ static void handleAMDTPSlection(void)
             break;
         case AMDTP_MENU_ID_SERVER_SEND:
             am_menu_printf("request server to send\r\n");
-            AmdtpcRequestServerSend();
+            if (bleMenuCb.amdtpMenuSelected == AMDTP_MENU_ID_NONE) {
+                am_menu_printf("choose an idx from connected nodes to request server to send data:\r\n");
+                showConnectedNodes();
+                bleMenuCb.amdtpMenuSelected = AMDTP_MENU_ID_SERVER_SEND;
+            } else {
+                uint8_t idx = menuRxData[0] - '0';
+                bleMenuCb.targetNodeIdx = idx;
+                AmdtpcRequestServerSend(pConnIdList[bleMenuCb.targetNodeIdx]);
+                bleMenuCb.amdtpMenuSelected = AMDTP_MENU_ID_NONE;
+            }
             break;
         case AMDTP_MENU_ID_SERVER_SEND_STOP:
             am_menu_printf("request server to stop\r\n");
-            AmdtpcRequestServerSendStop();
+            AmdtpcRequestServerSendStop(pConnIdList[bleMenuCb.targetNodeIdx]);
             break;
         default:
             break;
