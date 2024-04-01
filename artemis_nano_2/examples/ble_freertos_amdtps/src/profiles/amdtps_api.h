@@ -100,7 +100,7 @@ void amdtps_start(dmConnId_t connId, uint8_t timerEvt, uint8_t amdtpCccIdx);
 void amdtps_stop(dmConnId_t connId);
 
 eAmdtpStatus_t
-AmdtpsSendPacket(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t *buf, uint16_t len);
+AmdtpsSendPacket(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t *buf, uint16_t len, dmConnId_t connId);
 
 #ifdef __cplusplus
 }

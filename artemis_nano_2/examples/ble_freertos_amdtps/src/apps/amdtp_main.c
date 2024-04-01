@@ -293,7 +293,7 @@ static void AmdtpsSendTestData(void)
     *(uint32_t*)pData = counter;
 
 //    status = AmdtpsSendPacket(AMDTP_PKT_TYPE_DATA, false, true, data, sizeof(data));
-    status = AmdtpsSendPacket(AMDTP_PKT_TYPE_DATA, false, false, data, AttGetMtu(1) - 11);
+    status = AmdtpsSendPacket(AMDTP_PKT_TYPE_DATA, false, false, data, AttGetMtu(1) - 11, 1);
     if (status != AMDTP_STATUS_SUCCESS)
     {
         APP_TRACE_INFO1("AmdtpsSendTestData() failed, status = %d\n", status);
@@ -671,7 +671,7 @@ static void amdtpProcMsg(amdtpMsg_t *pMsg)
 /*************************************************************************************************/
 // callback function when receiving complete client data
 /*************************************************************************************************/
-void amdtpDtpRecvCback(uint8_t * buf, uint16_t len)
+void amdtpDtpRecvCback(uint8_t * buf, uint16_t len, dmConnId_t connId)
 {
 #ifdef MEASURE_THROUGHPUT
     static bool measTpStarted = false;
@@ -711,7 +711,7 @@ void amdtpDtpRecvCback(uint8_t * buf, uint16_t len)
  * 
  * @param status 
  */
-void amdtpDtpTransCback(eAmdtpStatus_t status)
+void amdtpDtpTransCback(eAmdtpStatus_t status, dmConnId_t connId)
 {
     // APP_TRACE_INFO1("amdtpDtpTransCback status = %d\n", status);
     if (status == AMDTP_STATUS_SUCCESS && sendDataContinuously)
