@@ -144,7 +144,6 @@ static wsfBufPoolDesc_t g_psPoolDescriptors[WSF_BUF_POOLS] =
 wsfHandlerId_t g_uartDataReadyHandlerId;
 void uart_data_ready_handler(wsfEventMask_t event, wsfMsgHdr_t *pMsg)
 {
-    am_util_debug_printf("Invoking uart_data_ready_handler\r\n");
     BleMenuRx();
 }
 #endif

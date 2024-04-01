@@ -124,6 +124,15 @@ static const am_hal_uart_config_t g_sBspUartConfig =
     .ui32RxBufferSize = 0,
 };
 
+void* get_g_sCOMUART() {
+    return g_sCOMUART;
+}
+
+// Setter function
+void set_g_sCOMUART(void* value) {
+    g_sCOMUART = value;
+}
+
 #ifndef AM_BSP_DISABLE_BUFFERED_UART
 //*****************************************************************************
 //

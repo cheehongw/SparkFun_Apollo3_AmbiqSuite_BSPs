@@ -239,6 +239,7 @@ INCLUDES+= -I../../amdtp_shared/profiles/amdtpcommon
 INCLUDES+= -I../src/profiles
 INCLUDES+= -I../src/apps
 INCLUDES+= -I../src/menu
+INCLUDES+= -I$(BOARDPATH)/bsp
 
 VPATH = ../../../../../third_party/uecc
 VPATH+=:../../../../../third_party/cordio/ble-profiles/sources/profiles/gap
@@ -271,6 +272,7 @@ VPATH+=:../../amdtp_shared/profiles/amdtpcommon
 VPATH+=:../src/apps
 VPATH+=:../src/profiles
 VPATH+=:../src/menu
+VPATH+=:$(BOARDPATH)/bsp
 
 SRC = uECC.c
 SRC += uECC_ll.c
@@ -449,6 +451,7 @@ SRC += tasks.c
 SRC += timers.c
 SRC += am_devices_button.c
 SRC += am_devices_led.c
+SRC += am_bsp.c
 SRC += startup_gcc.c
 SRC += ble_freertos_amdtpc.c
 SRC += radio_task.c
