@@ -64,6 +64,7 @@ char mainMenuContent[BLE_MENU_ID_MAX][32] = {
     "1. BLE_MENU_ID_GAP",
     "2. BLE_MENU_ID_GATT",
     "3. BLE_MENU_ID_AMDTP",
+    "4. BLE_MENU_ID_DISTRIBUTED",
 };
 
 char gapMenuContent[GAP_MENU_ID_MAX][32] = {
@@ -264,6 +265,10 @@ static void handleSelection(void)
         case BLE_MENU_ID_AMDTP:
             handleAMDTPSlection();
             break;
+        case BLE_MENU_ID_DISTRIBUTED:
+            am_menu_printf("Starting distributed tasks...\n");
+            xTaskCreate(doDistributedTask, "Distributed Task", 1024, NULL, 1, &distributionProtocolTaskHandle);
+            break;
         default:
             am_menu_printf("handleSelection() unknown input\n");
             break;
@@ -346,6 +351,9 @@ BleMenuShowMenu(void)
             break;
         case BLE_MENU_ID_AMDTP:
             BLEMenuShowAMDTPMenu();
+            break;
+        case BLE_MENU_ID_DISTRIBUTED:
+            am_menu_printf("Press any key to start!\n");
             break;
         default:
             break;

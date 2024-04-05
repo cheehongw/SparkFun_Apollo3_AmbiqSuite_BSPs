@@ -56,6 +56,7 @@
 #include "amdtpc_api.h"
 #include "svc_amdtp.h"
 #include "wsf_trace.h"
+#include "distributed_protocol.h"
 
 static void amdtpcHandleWriteResponse(attEvt_t *pMsg);
 
@@ -286,6 +287,7 @@ amdtpc_conn_close(dmEvt_t *pMsg)
     resetPkt(&amdtpcCb[connId - 1].core.rxPkt);
     resetPkt(&amdtpcCb[connId - 1].core.txPkt);
     resetPkt(&amdtpcCb[connId - 1].core.ackPkt);
+    removeConnectedClient(connId);
 }
 
 void
@@ -307,6 +309,8 @@ amdtpc_start(dmConnId_t connId, uint16_t rxHdl, uint16_t ackHdl, uint16_t txHdl,
 
     amdtpcCb[connId - 1].core.attMtuSize = AttGetMtu(connId);
     APP_TRACE_INFO1("MTU size = %d bytes", amdtpcCb[connId - 1].core.attMtuSize);
+    addConnectedClient(connId);
+
 }
 
 //*****************************************************************************

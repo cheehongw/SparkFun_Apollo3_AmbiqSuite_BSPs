@@ -706,6 +706,10 @@ void amdtpDtpRecvCback(uint8_t * buf, uint16_t len, dmConnId_t connId)
         WsfTimerStartSec(&measTpTimer, 1);
     }
 #endif
+  
+  if (distributionProtocolTaskHandle != NULL) {
+    DpRecvCb(buf, len, connId);
+  }
 }
 
 void amdtpDtpTransCback(eAmdtpStatus_t status, dmConnId_t connId)

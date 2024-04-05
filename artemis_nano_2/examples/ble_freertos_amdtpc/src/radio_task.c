@@ -345,6 +345,9 @@ RadioTask(void *pvParameters)
     //     HciVscSetCustom_BDAddr(&bd_addr[0]);
     // }
 
+    // initialize and clear all existing clients in distributed protocol
+    initializeDistributedProtocol();
+
     //
     // Start the "Amdtp" profile.
     //
