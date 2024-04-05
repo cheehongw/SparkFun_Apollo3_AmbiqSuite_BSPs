@@ -693,7 +693,7 @@ void amdtpDtpRecvCback(uint8_t * buf, uint16_t len, dmConnId_t connId)
 {
     // reception callback
     // print the received data
-#if 1
+#if 0
     APP_TRACE_INFO0("-----------AMDTP Received data--------------\n");
     APP_TRACE_INFO3("len = %d, buf[0] = %d, buf[1] = %d\n", len, buf[0], buf[1]);
     APP_TRACE_INFO1("connId = %d\n", connId); 

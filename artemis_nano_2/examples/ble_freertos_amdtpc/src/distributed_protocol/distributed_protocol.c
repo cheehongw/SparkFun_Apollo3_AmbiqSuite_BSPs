@@ -83,6 +83,8 @@ void initializeTasks() {
  * @return The length of the packet
  */
 uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf, eDpTaskStatus_t status) {
+    am_util_debug_printf("Building packet of type %d\n", type);
+
     distributedProtocolPacket_t *pkt;
 
     pkt = (distributedProtocolPacket_t *) buf;
@@ -92,11 +94,15 @@ uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf, eDpTaskStatus_t s
     // Build the packet
     if (type == DP_PKT_TYPE_ENQUIRY) {
         return DP_ENQUIRY_PKT_SIZE;
-
-
     } else if (type == DP_PKT_TYPE_NEW_TASK) {
         pkt->len = task->dataLength;
-        memcpy(pkt->taskData.data, task->data, task->dataLength);
+        am_util_debug_printf("Task data length: %d\n", task->dataLength);
+
+
+        am_util_debug_printf("Pointer to task data: %x\n", task->data);
+        am_util_debug_printf("Pointer to pkt task data: %x\n", &(pkt->taskData.data));
+        memcpy(&(pkt->taskData.data), task->data, task->dataLength);
+        am_util_debug_printf("memcpy data");
         return DP_NEW_TASK_HEADER_SIZE + task->dataLength;
 
 
@@ -105,7 +111,7 @@ uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf, eDpTaskStatus_t s
 
         if (status == DP_TASK_STATUS_COMPLETE) {
             pkt->taskData.statusWithData.status = status;
-            memcpy(pkt->taskData.statusWithData.data, task->result, task->dataLength);
+            memcpy(&(pkt->taskData.statusWithData.data), task->result, task->dataLength);
             return DP_RESPONSE_HEADER_SIZE + task->dataLength;
         } 
 
@@ -137,6 +143,7 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
     if (type == DP_PKT_TYPE_RESPONSE) { //should only have this for master device
         Task *task = &tasks[pkt->taskId];
         eDpTaskStatus_t status = pkt->taskData.statusWithData.status;
+        am_util_debug_printf("Received response from client %d, task status: %d\n", connId, status);
 
         if (status == DP_TASK_STATUS_COMPLETE) {
             uint8_t resultLen = pkt->len;
@@ -154,18 +161,20 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
             task->status = DP_TASK_STATUS_INCOMPLETE;
             addTaskBackToQueue(task); // Add the task back to the task queue
         }
-
         xSemaphoreGive(connectedClients[connId - 1].receivedReplySem); // Set the receivedReplySem flag for the client
     }
 }
 
 void sendTaskToClient(Client *client, Task *task) {
 
+    am_util_debug_printf("Sending task %d to client %d\n", task->taskId, client->connId);
     task->status = DP_TASK_STATUS_IN_PROGRESS;
     client->assignedTask = task;
     uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_NEW_TASK, task, buf, task->dataLength);
 
+    am_util_debug_printf("Invoking amdtpc send for task %d to client %d\n", task->taskId, client->connId);
     AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, buf, overallPacketLength, client->connId);
+    
 }
 
 /**
@@ -174,12 +183,13 @@ void sendTaskToClient(Client *client, Task *task) {
 int sendTasksToClients() {
     int tasksSent = 0;
     for (int i = 0; i < DM_CONN_MAX; i++) {
-        if (connectedClients[i].connId == -1 || connectedClients[i].assignedTask != NULL) {
+        if (connectedClients[i].connId == 0 || connectedClients[i].assignedTask != NULL) {
             continue;
         }
 
         Task *task = dequeueTask();                     // Get the task from the task queue
         if (task == NULL) {
+            am_util_debug_printf("No tasks in the queue, exiting sendTasksToClients...");
             break;
         }
 
@@ -194,14 +204,16 @@ int sendTasksToClients() {
 void pollClient(Client *client) {
     uint16_t overallPacketLength;
     overallPacketLength = DpBuildPacket(DP_PKT_TYPE_ENQUIRY, client->assignedTask, buf, 0);
-    AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, buf, overallPacketLength, client->connId);
-    xSemaphoreTake(client->receivedReplySem, portMAX_DELAY);
+    am_util_debug_printf("Polling client %d\n", client->connId);
+    if (AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, buf, overallPacketLength, client->connId) == AMDTP_STATUS_SUCCESS) {
+        xSemaphoreTake(client->receivedReplySem, portMAX_DELAY);
+    };
     // will block until the semaphore is given in the recv callback
 }
 
 void pollClientsForReplies() {
     for (int i = 0; i < DM_CONN_MAX; i++) {
-        if (connectedClients[i].connId == -1 || connectedClients[i].assignedTask == NULL) {
+        if (connectedClients[i].connId == 0 || connectedClients[i].assignedTask == NULL) {
             continue;
         }
 
@@ -222,16 +234,19 @@ int areClientsConnected() {
     int numConnectedClients = 0;
 
     for (int i = 0; i < DM_CONN_MAX; i++) {
-        if (connectedClients[i].connId != -1) {
+        if (connectedClients[i].connId != 0) {
             numConnectedClients++;
+            am_util_debug_printf("address: %x, connId: %d\n", connectedClients[i], connectedClients[i].connId);
+
         }
     }
+
+    am_util_debug_printf("Number of connected clients: %d\n", numConnectedClients);
 
     return numConnectedClients;
 }
 
 
-//TODO: call this from a new RTOS task -> BLE_MENU: create task...
 void doDistributedTask() {
     initializeTasks();
 
@@ -262,9 +277,9 @@ void addConnectedClient(dmConnId_t connId) {
     // Add the client to the list
     connectedClients[connId - 1].connId = connId;
     connectedClients[connId - 1].assignedTask = NULL;   
-    connectedClients[connId - 1].receivedReplySem = xSemaphoreCreateBinary();
+    connectedClients[connId - 1].receivedReplySem = xSemaphoreCreateBinaryStatic(&(connectedClients[connId - 1].xSemaphoreBuffer));
 
-    if (connectedClients[connId].receivedReplySem == NULL) {
+    if (connectedClients[connId - 1].receivedReplySem == NULL) {
         // Semaphore creation failed
         am_util_debug_printf("Semaphore creation failed");
     }
@@ -272,19 +287,22 @@ void addConnectedClient(dmConnId_t connId) {
 
 void removeConnectedClient(dmConnId_t connId) {
     // Remove the client from the list
-    connectedClients[connId - 1].connId = -1;
+    connectedClients[connId - 1].connId = 0;
     connectedClients[connId - 1].assignedTask = NULL;
     vSemaphoreDelete(connectedClients[connId - 1].receivedReplySem);
 }
 
-void initializeDistributedProtocol() {
+void initializeDistributedProtocol(dp_initialize_tasks_t initializeTasks, dp_reassemble_task_results_t reassembleTaskResults) {
     // Initialize the distributed protocol
+    am_util_debug_printf("Initializing distributed protocol...\n");
     for (int i = 0; i < DM_CONN_MAX; i++) {
-        connectedClients[i].connId = -1;
-        connectedClients[i].assignedTask = NULL;   
+        connectedClients[i].connId = 0;
+        connectedClients[i].assignedTask = NULL;
+        am_util_debug_printf("address: %x, connId: %d\n", connectedClients[i], connectedClients[i].connId);
+
     }
 
     taskCount = 0;
-    customInitializeTasks = NULL;
-    reassembleTaskResults = NULL;
+    customInitializeTasks = initializeTasks;
+    reassembleTaskResults = reassembleTaskResults;
 }

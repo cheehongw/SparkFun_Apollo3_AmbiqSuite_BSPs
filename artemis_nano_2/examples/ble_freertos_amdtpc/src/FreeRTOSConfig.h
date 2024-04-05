@@ -62,7 +62,7 @@ extern "C"
 #define configTICK_RATE_HZ                      1000
 #define configMAX_PRIORITIES                    4
 #define configMINIMAL_STACK_SIZE                (256)
-#define configTOTAL_HEAP_SIZE                   (16 * 1024)
+#define configTOTAL_HEAP_SIZE                   (32 * 1024)
 #define configMAX_TASK_NAME_LEN                 16
 #define configUSE_16_BIT_TICKS                  0
 #define configIDLE_SHOULD_YIELD                 1
@@ -76,6 +76,7 @@ extern "C"
 #define configUSE_TIME_SLICING                  0
 #define configUSE_NEWLIB_REENTRANT              0
 #define configENABLE_BACKWARD_COMPATIBILITY     0
+#define configSUPPORT_STATIC_ALLOCATION         1
 
 /* Hook function related definitions. */
 #define configUSE_IDLE_HOOK                     0

@@ -239,6 +239,8 @@ INCLUDES+= -I../../amdtp_shared/profiles/amdtpcommon
 INCLUDES+= -I../src/profiles
 INCLUDES+= -I../src/apps
 INCLUDES+= -I../src/menu
+INCLUDES+= -I../src/distributed_protocol
+INCLUDES+= -I../src/distributed_protocol/distributed_sum
 INCLUDES+= -I$(BOARDPATH)/bsp
 
 VPATH = ../../../../../third_party/uecc
@@ -272,6 +274,8 @@ VPATH+=:../../amdtp_shared/profiles/amdtpcommon
 VPATH+=:../src/apps
 VPATH+=:../src/profiles
 VPATH+=:../src/menu
+VPATH+=:../src/distributed_protocol
+VPATH+=:../src/distributed_protocol/distributed_sum
 VPATH+=:$(BOARDPATH)/bsp
 
 SRC = uECC.c
@@ -459,6 +463,8 @@ SRC += amdtp_common.c
 SRC += ble_menu.c
 SRC += amdtp_main.c
 SRC += amdtpc_main.c
+SRC += distributed_protocol.c
+SRC += distributed_sum.c
 
 
 CSRC = $(filter %.c,$(SRC))

@@ -1,3 +1,6 @@
+#ifndef DISTRIBUTED_PROTOCOL_H
+#define DISTRIBUTED_PROTOCOL_H
+
 #include "dm_api.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
@@ -32,12 +35,12 @@ typedef enum eDpTaskStatus {
 
 typedef struct {
     eDpTaskStatus_t status;
-    uint8_t *data;
+    void *data;
 } TaskStatusWithData;
 
 typedef union {
     eDpTaskStatus_t status;
-    uint8_t *data;
+    void *data;
     TaskStatusWithData statusWithData;
 } TaskData;
 
@@ -62,6 +65,7 @@ typedef struct {
     dmConnId_t          connId;                 // Connection ID of the client
     Task*               assignedTask;           // Task assigned to the client
     SemaphoreHandle_t   receivedReplySem;       // Flag to indicate if the client has replied
+    StaticSemaphore_t   xSemaphoreBuffer; // Semaphore structure
 } Client;
 
 // application layer to initialize tasks
@@ -70,7 +74,7 @@ typedef void (*dp_initialize_tasks_t)(Task* tasks, size_t* numTasks);
 typedef void (*dp_reassemble_task_results_t)(Task* tasks, size_t numTasksCompleted);
 
 void doDistributedTask();
-void initializeDistributedProtocol();
+void initializeDistributedProtocol(dp_initialize_tasks_t, dp_reassemble_task_results_t);
 void addConnectedClient(dmConnId_t connId);
 void removeConnectedClient(dmConnId_t connId);
 void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId);
@@ -78,3 +82,5 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId);
 
 
 extern TaskHandle_t distributionProtocolTaskHandle;
+
+#endif // DISTRIBUTED_PROTOCOL_H

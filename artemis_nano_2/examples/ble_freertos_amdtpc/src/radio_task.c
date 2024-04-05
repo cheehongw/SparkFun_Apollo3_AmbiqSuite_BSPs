@@ -95,6 +95,7 @@
 #include "amdtp_api.h"
 #include "amdtpc_api.h"
 #include "app_ui.h"
+#include "distributed_sum.h"
 
 #ifdef BLE_MENU
 #include "ble_menu.h"
@@ -346,7 +347,7 @@ RadioTask(void *pvParameters)
     // }
 
     // initialize and clear all existing clients in distributed protocol
-    initializeDistributedProtocol();
+    initializeDistributedProtocol(initializeSumTask, reassembleSumTask);
 
     //
     // Start the "Amdtp" profile.
