@@ -206,6 +206,7 @@ AmdtpPacketHandler(amdtpCb_t *amdtpCb, eAmdtpPktType_t type, uint16_t len, uint8
             eAmdtpStatus_t status = (eAmdtpStatus_t)buf[0];
             // stop tx timeout timer
             WsfTimerStop(&amdtpCb->timeoutTimer);
+            APP_TRACE_INFO0("AmdtpPacketHandler: ACK received\n");
 
             if (amdtpCb->txState != AMDTP_STATE_TX_IDLE)
             {
@@ -216,6 +217,7 @@ AmdtpPacketHandler(amdtpCb_t *amdtpCb, eAmdtpPktType_t type, uint16_t len, uint8
             if (status == AMDTP_STATUS_CRC_ERROR || status == AMDTP_STATUS_RESEND_REPLY)
             {
                 // resend packet
+                APP_TRACE_INFO1("AmdtpPacketHandler: resend packet, status = %d\n", status);
                 AmdtpSendPacketHandler(amdtpCb);
             }
             else
@@ -392,9 +394,11 @@ AmdtpSendPacketHandler(amdtpCb_t *amdtpCb)
         amdtpCb->txState = AMDTP_STATE_SENDING;
     }
 
+    // APP_TRACE_INFO2("sendpackethandler len = %d, offset = %d\n", txPkt->len, txPkt->offset);
+
     if ( txPkt->offset >= txPkt->len )
     {
-        APP_TRACE_INFO0("sendpackethandler awaiting ack");
+        APP_TRACE_INFO0("sendpackethandler awaiting ack\n");
         // done sent packet
         amdtpCb->txState = AMDTP_STATE_WAITING_ACK;
         // start tx timeout timer
@@ -402,13 +406,17 @@ AmdtpSendPacketHandler(amdtpCb_t *amdtpCb)
     }
     else
     {
-        APP_TRACE_INFO0("sendpackethandler sending packet");
+        APP_TRACE_INFO0("sendpackethandler sending packet\n");
         remainingBytes = txPkt->len - txPkt->offset;
         transferSize = ((amdtpCb->attMtuSize - 3) > remainingBytes)
                                             ? remainingBytes
                                             : (amdtpCb->attMtuSize - 3);
         // send packet
-        amdtpCb->data_sender_func(&txPkt->data[txPkt->offset], transferSize, amdtpCb->connId);
+        // APP_TRACE_INFO3("sendpackethandler2 len = %d, offset = %d, transfersize = %d\n", txPkt->len, txPkt->offset, transferSize);
+
+        int offset = txPkt->offset;
         txPkt->offset += transferSize;
+        amdtpCb->data_sender_func(&txPkt->data[offset], transferSize, amdtpCb->connId);
+        // APP_TRACE_INFO3("sendpackethandler3 len = %d, offset = %d, transfersize = %d\n", txPkt->len, txPkt->offset, transferSize);
     }
 }

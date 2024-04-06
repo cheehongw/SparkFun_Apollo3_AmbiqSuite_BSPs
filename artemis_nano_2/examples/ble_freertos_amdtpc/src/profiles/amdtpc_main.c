@@ -196,8 +196,8 @@ amdtpcSendData(uint8_t *buf, uint16_t len, dmConnId_t connId)
     if (amdtpcCb[connId - 1].attRxHdl != ATT_HANDLE_NONE)
     {
         APP_TRACE_INFO3("AmdtpcSendData(), connId = %d, attRxHdl = %x, len = %d", connId, amdtpcCb[connId - 1].attRxHdl, len);
-        AttcWriteCmd(connId, amdtpcCb[connId - 1].attRxHdl, len, buf);
         amdtpcCb[connId - 1].txReady = false;
+        AttcWriteCmd(connId, amdtpcCb[connId - 1].attRxHdl, len, buf);
     }
     else
     {
@@ -407,7 +407,7 @@ amdtpcHandleWriteResponse(attEvt_t *pMsg)
 
     dmConnId_t connId = pMsg->hdr.param;
 
-    //APP_TRACE_INFO2("amdtpcHandleWriteResponse, status = %d, hdl = 0x%x\n", pMsg->hdr.status, pMsg->handle);
+    APP_TRACE_INFO2("amdtpcHandleWriteResponse, status = %d, hdl = 0x%x\n", pMsg->hdr.status, pMsg->handle);
     if (pMsg->hdr.status == ATT_SUCCESS && pMsg->handle == amdtpcCb[connId - 1].attRxHdl)
     {
         amdtpcCb[connId - 1].txReady = true;
@@ -489,6 +489,7 @@ AmdtpcSendPacket(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8
 
     AmdtpBuildPkt(&amdtpcCb[connId - 1].core, type, encrypted, enableACK, buf, len);
     // send packet
+    APP_TRACE_INFO0("AmdtpcSendPacket()");
     AmdtpSendPacketHandler(&amdtpcCb[connId - 1].core);
 
     return AMDTP_STATUS_SUCCESS;
