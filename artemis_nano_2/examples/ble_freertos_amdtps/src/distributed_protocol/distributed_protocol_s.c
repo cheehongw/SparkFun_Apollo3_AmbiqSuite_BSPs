@@ -19,6 +19,16 @@ Task task;
 
 uint8_t dpBuf[1024];
 
+void print_buffer(uint8_t *buf, size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        am_util_debug_printf("%02X ", buf[i]);
+        if ((i + 1) % 16 == 0) {
+            am_util_debug_printf("\n");
+        }
+    }
+    am_util_debug_printf("\n");
+}
+
 
 /**
  * @brief Builds a distributed protocol packet
@@ -45,16 +55,16 @@ uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf) {
         am_util_debug_printf("Building response packet ");
 
         if (task->status == DP_TASK_STATUS_COMPLETE) {
-            pkt->taskData.statusWithData.status = task->status;
+            pkt->status = task->status;
             am_util_debug_printf("for completed task %d, \n", task->taskId);
             // am_util_debug_printf("Pointer to task result: %x\n", task->result);
             // am_util_debug_printf("Pointer to pkt task data: %x\n", &(pkt->taskData.statusWithData.data));
-            memcpy(&(pkt->taskData.statusWithData.data), task->result, task->dataLength);
+            memcpy(&(pkt->data), task->result, task->dataLength);
             return DP_RESPONSE_HEADER_SIZE + task->dataLength;
         } 
         am_util_debug_printf("for unfinished task %d, \n", task->taskId);
         pkt->len = 0;
-        pkt->taskData.statusWithData.status = task->status;
+        pkt->status = task->status;
         return DP_RESPONSE_HEADER_SIZE;
 
     } else {
@@ -99,16 +109,24 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
     } else if (type == DP_PKT_TYPE_NEW_TASK) {
         am_util_debug_printf("Received new task for task %d\n", DpPkt->taskId);
 
+        am_util_debug_printf("packet dump:\n");
+        print_buffer(DpPkt, len);
+
         if (task.status != DP_TASK_STATUS_IN_PROGRESS) {
 
             //receive the new task
             task.taskId = DpPkt->taskId;
 
 
-            // am_util_debug_printf("Pointer to task data: %x\n", task.data);
-            // am_util_debug_printf("Pointer to pkt task data: %x\n", &(DpPkt->taskData.data));
-            memcpy(task.data, &(DpPkt->taskData.data), DpPkt->len);
+            memcpy(task.data, &(DpPkt->data), DpPkt->len);
             task.status = DP_TASK_STATUS_IN_PROGRESS;
+            am_util_debug_printf("Pointer to pkt task data: %x\n", &(DpPkt->data));
+            
+            am_util_debug_printf("packet dump:\n");
+            print_buffer(&(DpPkt->data), DpPkt->len);
+
+            am_util_debug_printf("Pointer to task data: %x\n", task.data);
+            am_util_debug_printf("task data: %d\n", *((int *) task.data));
 
             xTaskCreate(runExecuteTask, "Task", 1024, &task, 1, &distributionProtocolTaskHandle);
             return;

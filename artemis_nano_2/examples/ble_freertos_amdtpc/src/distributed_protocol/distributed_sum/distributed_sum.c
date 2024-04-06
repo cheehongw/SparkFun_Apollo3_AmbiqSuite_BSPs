@@ -11,6 +11,7 @@ void initializeSumTask(Task *tasks, size_t *numTasks) {
 
     for (int i = 0; i < APP_TASK_COUNT; i++) {
         tasks[i].data = &randomData[i];
+        randomData[i] = i;
         tasks[i].dataLength = sizeof(int);
         tasks[i].result = &resultData[i];
     }
@@ -23,7 +24,6 @@ void reassembleSumTask(Task *tasks, size_t numTasks) {
     }
 
     int sum = 0;
-    int res = 0;
 
     am_util_debug_printf("Summing all tasks...\n");
     for (int i = 0; i < numTasks; i++) {

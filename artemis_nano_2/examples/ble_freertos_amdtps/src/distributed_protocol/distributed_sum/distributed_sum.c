@@ -41,10 +41,10 @@ void reassembleSumTask(Task *tasks, size_t numTasks) {
 }
 
 void executeTask(Task *task) {
-    am_util_debug_printf("Executing task %x\n", task);
+    am_util_debug_printf("Executing task %d\n", task->taskId);
     int *data = (int *) task->data;
     // am_util_debug_printf("successfully declared *data %x\n", data);
-    // am_util_debug_printf("value of *data %d\n", *data);
+    am_util_debug_printf("value of *data %d\n", *data);
 
     int *result = (int *) task->result;
     // am_util_debug_printf("successfully declared *result  %x\n", result);

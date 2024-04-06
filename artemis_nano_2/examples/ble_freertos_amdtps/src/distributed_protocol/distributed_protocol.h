@@ -29,25 +29,16 @@ typedef enum eDpTaskStatus {
 #define DP_PKT_TYPE_SIZE            sizeof(eDpPktType_t)
 
 #define DP_ENQUIRY_PKT_SIZE         DP_PKT_TYPE_SIZE + DP_TASK_ID_SIZE
-#define DP_NEW_TASK_HEADER_SIZE     DP_PKT_TYPE_SIZE + DP_TASK_ID_SIZE + DP_LEN_SIZE
+#define DP_NEW_TASK_HEADER_SIZE     DP_PKT_TYPE_SIZE + DP_TASK_ID_SIZE + DP_LEN_SIZE + DP_STATUS_SIZE
 #define DP_RESPONSE_HEADER_SIZE     DP_PKT_TYPE_SIZE + DP_TASK_ID_SIZE + DP_LEN_SIZE + DP_STATUS_SIZE
 
-typedef struct {
-    eDpTaskStatus_t status;
-    void *data;
-} TaskStatusWithData;
-
-typedef union {
-    eDpTaskStatus_t status;
-    void *data;
-    TaskStatusWithData statusWithData;
-} TaskData;
 
 typedef struct {
     eDpPktType_t type;
     uint8_t taskId;
     uint8_t len;                    // Length of the data   
-    TaskData taskData;
+    eDpTaskStatus_t status;
+    void *data;
 } distributedProtocolPacket_t;
 
 typedef struct {

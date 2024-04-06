@@ -61,6 +61,16 @@ Task* dequeueTask() {
     return task;
 }
 
+void print_buffer(uint8_t *buf, size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        am_util_debug_printf("%02X ", buf[i]);
+        if ((i + 1) % 16 == 0) {
+            am_util_debug_printf("\n");
+        }
+    }
+    am_util_debug_printf("\n");
+}
+
 // --------------------------------------------------------------------------------------------
 
 
@@ -111,10 +121,15 @@ uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf, eDpTaskStatus_t s
         am_util_debug_printf("Task data length: %d\n", task->dataLength);
 
 
-        am_util_debug_printf("Pointer to task data: %x\n", task->data);
-        am_util_debug_printf("Pointer to pkt task data: %x\n", &(pkt->taskData.data));
-        memcpy(&(pkt->taskData.data), task->data, task->dataLength);
-        am_util_debug_printf("memcpy data");
+        // am_util_debug_printf("Pointer to task data: %x\n", task->data);
+        // am_util_debug_printf("Pointer to pkt task data: %x\n", &(pkt->taskData.data));
+        am_util_debug_printf("Value of task data: %d\n", *((int *) task->data));
+        memcpy(&(pkt->data), task->data, task->dataLength);
+        am_util_debug_printf("Value of task data in pkt -> data: %d\n", *((int *) &(pkt->data)));
+
+        am_util_debug_printf("packet dump:\n");
+        print_buffer(&(pkt->data), pkt->len);
+        
         return DP_NEW_TASK_HEADER_SIZE + task->dataLength;
 
 
@@ -122,12 +137,12 @@ uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf, eDpTaskStatus_t s
         pkt->len = task->dataLength;
 
         if (status == DP_TASK_STATUS_COMPLETE) {
-            pkt->taskData.statusWithData.status = status;
-            memcpy(&(pkt->taskData.statusWithData.data), task->result, task->dataLength);
+            pkt->status = status;
+            memcpy(&(pkt->data), task->result, task->dataLength);
             return DP_RESPONSE_HEADER_SIZE + task->dataLength;
         } 
 
-        pkt->taskData.status = status;
+        pkt->status = status;
         return DP_RESPONSE_HEADER_SIZE;
     }
 
@@ -154,14 +169,14 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
 
     if (type == DP_PKT_TYPE_RESPONSE) { //should only have this for master device
         Task *task = &tasks[pkt->taskId];
-        eDpTaskStatus_t status = pkt->taskData.statusWithData.status;
+        eDpTaskStatus_t status = pkt->status;
         am_util_debug_printf("Received response from client %d for task %d, task status: %d\n", connId, task->taskId, status);
 
         if (status == DP_TASK_STATUS_COMPLETE) {
             uint8_t resultLen = pkt->len;
             // am_util_debug_printf("Pointer to task result: %x\n", task->result);
-            // am_util_debug_printf("Pointer to pkt task result: %x\n", &(pkt->taskData.statusWithData.data));
-            memcpy(task->result, &(pkt->taskData.statusWithData.data), resultLen);
+            // am_util_debug_printf("Pointer to pkt task result: %x\n", &(pkt->data));
+            memcpy(task->result, &(pkt->data), resultLen);
 
             task->status = DP_TASK_STATUS_COMPLETE;
             connectedClients[connId - 1].assignedTask = NULL; // Remove the task from the client
@@ -179,6 +194,7 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
     }
 }
 
+
 void sendTaskToClient(Client *client, Task *task) {
 
     am_util_debug_printf("Sending task %d to client %d\n", task->taskId, client->connId);
@@ -187,6 +203,8 @@ void sendTaskToClient(Client *client, Task *task) {
     uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_NEW_TASK, task, dpBuf, task->dataLength);
 
     am_util_debug_printf("Invoking amdtpc send for task %d to client %d\n", task->taskId, client->connId);
+    am_util_debug_printf("packet dump:\n");
+    print_buffer(dpBuf, overallPacketLength);
     AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, dpBuf, overallPacketLength, client->connId);
     
 }
