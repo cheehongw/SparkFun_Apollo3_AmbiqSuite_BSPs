@@ -85,6 +85,9 @@ void initClientTasks(Task *tasks, size_t *numTasks) {
     identityMatrix((int *)MATRIX_B, N, P);
 
     printMatrix((int *)MATRIX_A, M, P);
+    
+    am_util_stdio_printf("\n");
+
     printMatrixTranspose((int *)MATRIX_B, N, P);
 
     for (int j = 0; j < N; j++) {  // for each col of B
@@ -101,13 +104,13 @@ void initClientTasks(Task *tasks, size_t *numTasks) {
 
 void copyTaskDataToSendBuffer(uint8_t *buffer, Task *task) {
 
-    am_util_stdio_printf("Copying task data to send buffer\n");
+    // am_util_stdio_printf("Copying task data to send buffer\n");
     int taskId = task->taskId;
     int i = taskId / N;
     int j = taskId % N;
     memcpy(buffer, MATRIX_A[i], sizeof(int[P]));
     memcpy(buffer + sizeof(int[P]), MATRIX_B[j], sizeof(int[P]));
-    am_util_stdio_printf("Copying task data to send buffer finished\n");
+    // am_util_stdio_printf("Copying task data to send buffer finished\n");
 }
 
 

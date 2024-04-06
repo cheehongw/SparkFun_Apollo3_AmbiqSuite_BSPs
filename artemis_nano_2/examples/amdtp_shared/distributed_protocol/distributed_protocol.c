@@ -260,6 +260,10 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
             //task failed, or slave is not working on this task
             task->status = DP_TASK_STATUS_INCOMPLETE;
             addTaskBackToQueue(task); // Add the task back to the task queue
+        } else {
+            am_util_stdio_printf("Unknown task status, adding back to queue!\n");
+            task->status = DP_TASK_STATUS_INCOMPLETE;
+            addTaskBackToQueue(task); // Add the task back to the task queue
         }
         xSemaphoreGive(connectedClients[connId - 1].receivedReplySem); // Set the receivedReplySem flag for the client
     }
