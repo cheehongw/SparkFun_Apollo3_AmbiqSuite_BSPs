@@ -93,6 +93,24 @@ void print_buffer(uint8_t *buf, size_t len) {
     am_util_debug_printf("\n");
 }
 
+void print_status(eDpTaskStatus_t status) {
+    switch (status) {
+    case DP_TASK_STATUS_COMPLETE:
+        am_util_stdio_printf("COMPLETE\n");
+        break;
+    case DP_TASK_STATUS_IN_PROGRESS:
+        am_util_stdio_printf("IN PROGRESS\n");
+        break;
+    case DP_TASK_STATUS_INCOMPLETE:
+        am_util_stdio_printf("INCOMPLETE\n");
+        break;
+    case DP_TASK_STATUS_UNKNOWN:
+        am_util_stdio_printf("UNKNOWN\n");
+    default:
+        break;
+}
+}
+
 // --------------------------------------------------------------------------------------------
 
 #if DP_MASTER
@@ -210,8 +228,9 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
     if (type == DP_PKT_TYPE_RESPONSE) { //should only have this for master device
         Task *task = &tasks[DpPkt->taskId];
         eDpTaskStatus_t status = DpPkt->status;
-        am_util_debug_printf("Received response from client %d for task %d, task status: %d\n", connId, task->taskId, status);
-
+        am_util_stdio_printf("Received response from client %d for task %d, task status: ", connId, task->taskId);
+        print_status(status);
+        
         if (status == DP_TASK_STATUS_COMPLETE) {
             uint8_t resultLen = DpPkt->len;
             // am_util_debug_printf("Pointer to task result: %x\n", task->result);
@@ -275,7 +294,7 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
 #if DP_MASTER
 void sendTaskToClient(Client *client, Task *task) {
 
-    am_util_debug_printf("Sending task %d to client %d\n", task->taskId, client->connId);
+    am_util_stdio_printf("Sending task %d to client %d\n", task->taskId, client->connId);
     task->status = DP_TASK_STATUS_IN_PROGRESS;
     client->assignedTask = task;
     uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_NEW_TASK, task, dpBuf);

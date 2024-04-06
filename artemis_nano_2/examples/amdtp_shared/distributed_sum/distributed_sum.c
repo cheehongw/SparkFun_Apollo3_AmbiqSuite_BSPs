@@ -1,5 +1,6 @@
 #include "distributed_sum.h"
 #include "am_util_debug.h"
+#include "am_util_stdio.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -32,16 +33,16 @@ void reassembleTaskResults(Task *tasks, size_t numTasks) {
 
     int sum = 0;
 
-    am_util_debug_printf("Summing all tasks...\n");
+    am_util_stdio_printf("Summing all tasks...\n");
     for (int i = 0; i < numTasks; i++) {
         sum += *((int *) tasks[i].result);
     }
 
-    am_util_debug_printf("Sum of all tasks: %d\n", sum);
+    am_util_stdio_printf("Sum of all tasks: %d\n", sum);
 }
 
 void executeTask(Task *task) {
-    am_util_debug_printf("Executing task %d\n", task->taskId);
+    am_util_stdio_printf("Executing task %d\n", task->taskId);
     int *data = (int *) task->data;
     // am_util_debug_printf("successfully declared *data %x\n", data);
     am_util_debug_printf("value of *data %d\n", *data);
@@ -60,6 +61,6 @@ void executeTask(Task *task) {
     // am_util_debug_printf("exiting delay\n");
     task->status = DP_TASK_STATUS_COMPLETE;
     distributionProtocolTaskHandle = NULL;
-    am_util_debug_printf("Task complete, result = %d\n", *result);
+    am_util_stdio_printf("Task complete, result = %d\n", *result);
     vTaskDelete(NULL);
 }

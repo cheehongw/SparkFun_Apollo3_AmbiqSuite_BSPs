@@ -136,8 +136,8 @@ setup_serial(int32_t i32Module)
 
     #if ENABLE_DEBUG
     NVIC_SetPriority(UART0_IRQn, NVIC_configMAX_SYSCALL_INTERRUPT_PRIORITY);
-    am_util_debug_printf("Serial status: %d\n", am_hal_uart_interrupt_clear(get_g_sCOMUART(), AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT));
-    am_util_debug_printf("Serial status: %d\n", am_hal_uart_interrupt_enable(get_g_sCOMUART(), AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT));
+    am_hal_uart_interrupt_clear(get_g_sCOMUART(), AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT);
+    am_hal_uart_interrupt_enable(get_g_sCOMUART(), AM_HAL_UART_INT_RX | AM_HAL_UART_INT_RX_TMOUT);
     NVIC_EnableIRQ(UART0_IRQn);
 
     #else
