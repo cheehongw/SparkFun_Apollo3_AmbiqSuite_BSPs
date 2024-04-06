@@ -24,29 +24,30 @@ typedef enum eDpTaskStatus {
 } eDpTaskStatus_t;
 
 
-#define DP_LEN_SIZE                 sizeof(uint8_t)
+#define DP_LEN_SIZE                 sizeof(uint16_t)
 #define DP_STATUS_SIZE              sizeof(eDpTaskStatus_t)
-#define DP_TASK_ID_SIZE             sizeof(uint8_t)
+#define DP_TASK_ID_SIZE             sizeof(int)
 #define DP_PKT_TYPE_SIZE            sizeof(eDpPktType_t)
 
-#define DP_ENQUIRY_PKT_SIZE         DP_PKT_TYPE_SIZE + DP_TASK_ID_SIZE
+#define DP_ENQUIRY_PKT_SIZE         2 * DP_TASK_ID_SIZE
 #define DP_NEW_TASK_HEADER_SIZE     DP_PKT_TYPE_SIZE + DP_TASK_ID_SIZE + DP_LEN_SIZE + DP_STATUS_SIZE
 #define DP_RESPONSE_HEADER_SIZE     DP_PKT_TYPE_SIZE + DP_TASK_ID_SIZE + DP_LEN_SIZE + DP_STATUS_SIZE
 
+#define DP_BUF_SIZE                 100000
 
 typedef struct {
     eDpPktType_t type;
-    uint8_t taskId;
-    uint8_t len;                    // Length of the data   
     eDpTaskStatus_t status;
+    uint16_t len;                    // Length of the data   
+    int taskId;
     void *data;
 } distributedProtocolPacket_t;
 
 typedef struct {
-    uint8_t taskId;
+    int taskId;
     eDpTaskStatus_t status;
     void *data;
-    int dataLength;
+    uint16_t dataLength;
     void *result;                             // Store the result of the task
     // Add any other task-related data here
 } Task;
@@ -70,6 +71,7 @@ void addConnectedClient(dmConnId_t connId);
 void removeConnectedClient(dmConnId_t connId);
 void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId);
 
+extern void copyTaskDataToSendBuffer(uint8_t *startOfData, Task *task);
 extern void executeTask(Task *task);
 extern void initClientTasks(Task *tasks, size_t *numTasks);
 extern void initServerTask(Task *task);

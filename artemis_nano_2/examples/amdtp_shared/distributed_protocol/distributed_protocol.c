@@ -5,6 +5,9 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+// #define DP_MASTER 1
+// #define DP_SLAVE 0
+
 #if DP_SLAVE
 #include "amdtp_common.h"
 #include "amdtps_api.h"
@@ -18,7 +21,7 @@
 #include "am_util_debug.h"
 
 TaskHandle_t distributionProtocolTaskHandle;
-uint8_t dpBuf[1024];                                        // Buffer to store the distributed protocol packet
+uint8_t dpBuf[DP_BUF_SIZE];                                        // Buffer to store the distributed protocol packet
 
 
 #if DP_SLAVE
@@ -26,7 +29,7 @@ Task task;
 #endif
 
 #if DP_MASTER
-#define MAX_TASKS 50
+#define MAX_TASKS 4100
 Task tasks[MAX_TASKS + 1];
 Client connectedClients[DM_CONN_MAX];
 size_t taskCount;
@@ -107,6 +110,7 @@ void print_status(eDpTaskStatus_t status) {
     case DP_TASK_STATUS_UNKNOWN:
         am_util_stdio_printf("UNKNOWN\n");
     default:
+        am_util_stdio_printf("???\n");
         break;
 }
 }
@@ -144,7 +148,7 @@ void initializeTasks() {
  * 
  * @return The length of the packet
  */
-uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf) {
+uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf, int bufSize) {
     am_util_debug_printf("Building packet of type %d\n", type);
 
     distributedProtocolPacket_t *pkt;
@@ -161,17 +165,21 @@ uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf) {
     } else if (type == DP_PKT_TYPE_NEW_TASK) {
         pkt->len = task->dataLength;
         am_util_debug_printf("Task data length: %d\n", task->dataLength);
-
+        if (task->dataLength + DP_NEW_TASK_HEADER_SIZE >= bufSize) {
+            am_util_stdio_printf("Task data length is too large for the buffer, this should not happen\n");
+            while(1); // Task data length is 0, this should not happen
+        } 
 
         // am_util_debug_printf("Pointer to task data: %x\n", task->data);
         // am_util_debug_printf("Pointer to pkt task data: %x\n", &(pkt->taskData.data));
-        am_util_debug_printf("Value of task data: %d\n", *((int *) task->data));
-        memcpy(&(pkt->data), task->data, task->dataLength);
-        am_util_debug_printf("Value of task data in pkt -> data: %d\n", *((int *) &(pkt->data)));
+        // am_util_debug_printf("Value of task data: %d\n", *((int *) task->data));
+        copyTaskDataToSendBuffer(&(pkt->data), task);
+        // memcpy(&(pkt->data), task->data, task->dataLength);
+        // am_util_debug_printf("Value of task data in pkt -> data: %d\n", *((int *) &(pkt->data)));
 
-        am_util_debug_printf("packet dump:\n");
-        print_buffer(&(pkt->data), pkt->len);
-        
+        // am_util_debug_printf("packet dump:\n");
+        // print_buffer(&(pkt->data), pkt->len);
+        am_util_debug_printf("Task data length: %d\n", task->dataLength);
         return DP_NEW_TASK_HEADER_SIZE + task->dataLength;
     } else {
         am_util_debug_printf("Building unknown packet for master????\n");
@@ -186,6 +194,10 @@ uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf) {
         am_util_debug_printf("Building response packet ");
 
         if (task->status == DP_TASK_STATUS_COMPLETE) {
+            if (task->dataLength + DP_RESPONSE_HEADER_SIZE >= bufSize) {
+                am_util_stdio_printf("Task data length is too large for the buffer, this should not happen\n");
+                while(1); // Task data length is 0, this should not happen
+            } 
             pkt->status = task->status;
             am_util_debug_printf("for completed task %d, \n", task->taskId);
             // am_util_debug_printf("Pointer to task result: %x\n", task->result);
@@ -257,30 +269,25 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
     if (type == DP_PKT_TYPE_ENQUIRY) {
         am_util_debug_printf("Received enquiry for task %d\n", DpPkt->taskId);
         // build response packet using task
-        uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_RESPONSE, &task, dpBuf);
+        uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_RESPONSE, &task, dpBuf, DP_BUF_SIZE);
         AmdtpsSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, dpBuf, overallPacketLength, connId);
 
     } else if (type == DP_PKT_TYPE_NEW_TASK) {
         am_util_debug_printf("Received new task for task %d\n", DpPkt->taskId);
 
-        am_util_debug_printf("packet dump:\n");
-        print_buffer(DpPkt, len);
+        // am_util_debug_printf("packet dump:\n");
+        // print_buffer(DpPkt, len);
 
         if (task.status != DP_TASK_STATUS_IN_PROGRESS) {
 
             //receive the new task
             task.taskId = DpPkt->taskId;
-
+            am_util_debug_printf("length of task data: %d\n", DpPkt->len);
 
             memcpy(task.data, &(DpPkt->data), DpPkt->len);
-            task.status = DP_TASK_STATUS_IN_PROGRESS;
-            am_util_debug_printf("Pointer to pkt task data: %x\n", &(DpPkt->data));
-            
+            task.status = DP_TASK_STATUS_IN_PROGRESS;            
             am_util_debug_printf("packet dump:\n");
             print_buffer(&(DpPkt->data), DpPkt->len);
-
-            am_util_debug_printf("Pointer to task data: %x\n", task.data);
-            am_util_debug_printf("task data: %d\n", *((int *) task.data));
 
             xTaskCreate(runExecuteTask, "Task", 1024, &task, 1, &distributionProtocolTaskHandle);
             return;
@@ -297,9 +304,10 @@ void sendTaskToClient(Client *client, Task *task) {
     am_util_stdio_printf("Sending task %d to client %d\n", task->taskId, client->connId);
     task->status = DP_TASK_STATUS_IN_PROGRESS;
     client->assignedTask = task;
-    uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_NEW_TASK, task, dpBuf);
+    uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_NEW_TASK, task, dpBuf, DP_BUF_SIZE);
 
     am_util_debug_printf("Invoking amdtpc send for task %d to client %d\n", task->taskId, client->connId);
+    am_util_debug_printf("packet size %d\n", overallPacketLength);
     am_util_debug_printf("packet dump:\n");
     print_buffer(dpBuf, overallPacketLength);
     AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, dpBuf, overallPacketLength, client->connId);
@@ -332,7 +340,7 @@ int sendTasksToClients() {
 
 void pollClient(Client *client) {
     uint16_t overallPacketLength;
-    overallPacketLength = DpBuildPacket(DP_PKT_TYPE_ENQUIRY, client->assignedTask, dpBuf);
+    overallPacketLength = DpBuildPacket(DP_PKT_TYPE_ENQUIRY, client->assignedTask, dpBuf, DP_BUF_SIZE);
     am_util_debug_printf("Polling client %d\n", client->connId);
     while (AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, dpBuf, overallPacketLength, client->connId) != AMDTP_STATUS_SUCCESS);
     am_util_debug_printf("Poll request sent to client %d for task %d, waiting for reply before polling others...\n", client->connId, client->assignedTask->taskId);

@@ -189,11 +189,11 @@ all clean:
 else
 
 DEFINES = -DPART_$(PART)
-# DEFINES+= -DAM_DEBUG_PRINTF
+DEFINES+= -DAM_DEBUG_PRINTF
 DEFINES+= -DAM_PACKAGE_BGA
 DEFINES+= -DAM_FREERTOS
 DEFINES+= -DSEC_ECC_CFG=SEC_ECC_CFG_HCI
-# DEFINES+= -DWSF_TRACE_ENABLED
+DEFINES+= -DWSF_TRACE_ENABLED
 DEFINES+= -DBLE_MENU
 DEFINES+= -DAM_PART_APOLLO3
 DEFINES+= -Dgcc
@@ -241,6 +241,7 @@ INCLUDES+= -I../src/apps
 INCLUDES+= -I../src/menu
 INCLUDES+= -I../../amdtp_shared/distributed_protocol
 INCLUDES+= -I../../amdtp_shared/distributed_sum
+INCLUDES+= -I../../amdtp_shared/matrix_mult
 INCLUDES+= -I$(BOARDPATH)/bsp
 
 VPATH = ../../../../../third_party/uecc
@@ -275,7 +276,8 @@ VPATH+=:../src/apps
 VPATH+=:../src/profiles
 VPATH+=:../src/menu
 VPATH+=:../../amdtp_shared/distributed_protocol
-VPATH+=:../../amdtp_shared/distributed_sum
+# VPATH+=:../../amdtp_shared/distributed_sum
+VPATH+=:../../amdtp_shared/matrix_mult
 VPATH+=:$(BOARDPATH)/bsp
 
 SRC = uECC.c
@@ -464,7 +466,8 @@ SRC += ble_menu.c
 SRC += amdtp_main.c
 SRC += amdtpc_main.c
 SRC += distributed_protocol.c
-SRC += distributed_sum.c
+# SRC += distributed_sum.c
+SRC += matrix_mult.c
 
 
 CSRC = $(filter %.c,$(SRC))
