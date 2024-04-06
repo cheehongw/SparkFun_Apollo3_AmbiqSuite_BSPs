@@ -237,6 +237,8 @@ INCLUDES+= -I../src/apps
 INCLUDES+= -I../src/profiles
 INCLUDES+= -I../../amdtp_shared/services
 INCLUDES+= -I../../amdtp_shared/profiles/amdtpcommon
+INCLUDES+= -I../src/distributed_protocol
+INCLUDES+= -I../src/distributed_protocol/distributed_sum
 
 VPATH = ../../../../../third_party/cordio/ble-host/sources/sec/common
 VPATH+=:../src
@@ -269,6 +271,8 @@ VPATH+=:../../amdtp_shared/services
 VPATH+=:../../amdtp_shared/profiles/amdtpcommon
 VPATH+=:../src/apps
 VPATH+=:../src/profiles
+VPATH+=:../src/distributed_protocol
+VPATH+=:../src/distributed_protocol/distributed_sum
 
 SRC = sec_aes.c
 SRC += sec_aes_rev.c
@@ -458,6 +462,8 @@ SRC += queue.c
 SRC += tasks.c
 SRC += timers.c
 SRC += startup_gcc.c
+SRC += distributed_protocol_s.c
+SRC += distributed_sum.c
 
 CSRC = $(filter %.c,$(SRC))
 ASRC = $(filter %.s,$(SRC))

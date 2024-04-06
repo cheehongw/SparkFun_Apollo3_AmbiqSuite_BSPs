@@ -32,6 +32,8 @@
 #include "am_util.h"
 #include "gatt_api.h"
 #include "atts_main.h"
+
+#include "distributed_protocol.h"
 /**************************************************************************************************
   Macros
 **************************************************************************************************/
@@ -682,28 +684,32 @@ void amdtpDtpRecvCback(uint8_t * buf, uint16_t len, dmConnId_t connId)
     APP_TRACE_INFO0("-----------AMDTP Received data--------------\n");
     APP_TRACE_INFO3("len = %d, buf[0] = %d, buf[1] = %d\n", len, buf[0], buf[1]);
 #endif
-    if (buf[0] == 1)
-    {
-        APP_TRACE_INFO0("send test data\n");
-        AmdtpsSendTestData();
-    }
-    else if (buf[0] == 2)
-    {
-        APP_TRACE_INFO0("send test data stop\n");
-        sendDataContinuously = false;
-    }
-    else
-    {
-#ifdef MEASURE_THROUGHPUT
-        gTotalDataBytesRecev += len;
-        // start throughput calculation timer once when receiving client data
-        if (!measTpStarted)
-        {
-            measTpStarted = true;
-            WsfTimerStartSec(&measTpTimer, 1);
-        }
-#endif
-    }
+
+//     if (buf[0] == 1 && distributionProtocolTaskHandle == NULL)
+//     {
+//         APP_TRACE_INFO0("send test data\n");
+//         AmdtpsSendTestData();
+//     }
+//     else if (buf[0] == 2 && distributionProtocolTaskHandle == NULL)
+//     {
+//         APP_TRACE_INFO0("send test data stop\n");
+//         sendDataContinuously = false;
+//     } else if (distributionProtocolTaskHandle != NULL) {
+  
+  DpRecvCb(buf, len, connId);
+//     }
+//     else
+//     {
+// #ifdef MEASURE_THROUGHPUT
+//         gTotalDataBytesRecev += len;
+//         // start throughput calculation timer once when receiving client data
+//         if (!measTpStarted)
+//         {
+//             measTpStarted = true;
+//             WsfTimerStartSec(&measTpTimer, 1);
+//         }
+// #endif
+//     }
 }
 
 /**
