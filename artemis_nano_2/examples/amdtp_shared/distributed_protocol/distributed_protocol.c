@@ -286,8 +286,8 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
 
             memcpy(task.data, &(DpPkt->data), DpPkt->len);
             task.status = DP_TASK_STATUS_IN_PROGRESS;            
-            am_util_debug_printf("packet dump:\n");
-            print_buffer(&(DpPkt->data), DpPkt->len);
+            // am_util_debug_printf("packet dump:\n");
+            // print_buffer(&(DpPkt->data), DpPkt->len);
 
             xTaskCreate(runExecuteTask, "Task", 1024, &task, 1, &distributionProtocolTaskHandle);
             return;
@@ -307,8 +307,8 @@ void sendTaskToClient(Client *client, Task *task) {
     uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_NEW_TASK, task, dpBuf, DP_BUF_SIZE);
 
     am_util_debug_printf("Invoking amdtpc send for task %d to client %d\n", task->taskId, client->connId);
-    am_util_debug_printf("packet size %d\n", overallPacketLength);
-    am_util_debug_printf("packet dump:\n");
+    // am_util_debug_printf("packet size %d\n", overallPacketLength);
+    // am_util_debug_printf("packet dump:\n");
     print_buffer(dpBuf, overallPacketLength);
     AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, dpBuf, overallPacketLength, client->connId);
     
