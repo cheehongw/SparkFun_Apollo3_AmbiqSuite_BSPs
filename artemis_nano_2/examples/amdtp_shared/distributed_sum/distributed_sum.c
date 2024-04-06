@@ -3,7 +3,6 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-
 int randomData[APP_TASK_COUNT];
 int resultData[APP_TASK_COUNT];
 
@@ -14,6 +13,7 @@ void initializeSumTask(Task *tasks, size_t *numTasks) {
 
     for (int i = 0; i < APP_TASK_COUNT; i++) {
         tasks[i].data = &randomData[i];
+        randomData[i] = i;
         tasks[i].dataLength = sizeof(int);
         tasks[i].result = &resultData[i];
     }
@@ -25,7 +25,6 @@ void initializeTaskServer(Task *task) {
     task->result = &resultData[0];
 }
 
-
 void reassembleSumTask(Task *tasks, size_t numTasks) {
     if (numTasks < APP_TASK_COUNT) {
         am_util_debug_printf("Not all tasks are complete...\n");
@@ -33,6 +32,7 @@ void reassembleSumTask(Task *tasks, size_t numTasks) {
 
     int sum = 0;
 
+    am_util_debug_printf("Summing all tasks...\n");
     for (int i = 0; i < numTasks; i++) {
         sum += *((int *) tasks[i].result);
     }
