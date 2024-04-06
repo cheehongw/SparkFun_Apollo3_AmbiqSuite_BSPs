@@ -60,16 +60,21 @@ typedef struct {
 
 // application layer to initialize tasks
 // sets the memory location for data and results
-typedef void (*dp_initialize_tasks_t)(Task* tasks, size_t* numTasks);
-typedef void (*dp_reassemble_task_results_t)(Task* tasks, size_t numTasksCompleted);
+// typedef void (*dp_initialize_tasks_t)(Task* tasks, size_t* numTasks);
+// typedef void (*dp_reassemble_task_results_t)(Task* tasks, size_t numTasksCompleted);
 
 void doDistributedTask();
 void initializeDistributedProtocol();
 void addConnectedClient(dmConnId_t connId);
 void removeConnectedClient(dmConnId_t connId);
 void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId);
-extern void executeTask(Task *task);
-extern void initializeTaskServer(Task *task);
+
+
+// These functions are defined in the application layer
+extern void executeTask(Task *task);        // Called by the slave
+extern void initClientTasks(Task *tasks, size_t *numTasks);       // Called by the master
+extern void initServerTask(Task *task);                 // Called by the slave
+extern void reassembleTaskResults(Task *tasks, size_t numTasksCompleted);       // Called by the master
 
 
 extern TaskHandle_t distributionProtocolTaskHandle;

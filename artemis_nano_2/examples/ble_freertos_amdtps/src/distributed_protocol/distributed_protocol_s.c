@@ -10,14 +10,14 @@
 #include "am_util_stdio.h"
 #include "am_util_debug.h"
 
-#define MAX_TASKS 10
-
 TaskHandle_t distributionProtocolTaskHandle;
-
-Task task;
-
-
 uint8_t dpBuf[1024];
+
+//---------------------------------------------------------------
+#if DP_SERVER
+Task task;
+#endif
+
 
 void print_buffer(uint8_t *buf, size_t len) {
     for (size_t i = 0; i < len; i++) {
@@ -138,5 +138,5 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
 
 void initializeDistributedProtocol() {
     am_util_debug_printf("Initializing distributed protocol\n");
-    initializeTaskServer(&task);
+    initServerTask(&task);
 }
