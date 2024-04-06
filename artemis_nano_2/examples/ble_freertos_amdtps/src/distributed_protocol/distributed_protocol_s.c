@@ -17,7 +17,7 @@ TaskHandle_t distributionProtocolTaskHandle;
 Task task;
 
 
-uint8_t buf[1024];
+uint8_t dpBuf[1024];
 
 
 /**
@@ -31,7 +31,7 @@ uint8_t buf[1024];
  * @return The length of the packet
  */
 uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf) {
-    am_util_debug_printf("Building packet of type %d\n", type);
+    // am_util_debug_printf("Building packet of type %d\n", type);
 
     distributedProtocolPacket_t *pkt;
 
@@ -40,44 +40,34 @@ uint16_t DpBuildPacket(uint8_t type, Task *task, uint8_t *buf) {
     pkt->type = type;
     pkt->taskId = task->taskId;
     // Build the packet
-    if (type == DP_PKT_TYPE_ENQUIRY) {
-        return DP_ENQUIRY_PKT_SIZE;
-    } else if (type == DP_PKT_TYPE_NEW_TASK) {
+    if (type == DP_PKT_TYPE_RESPONSE) {
         pkt->len = task->dataLength;
-        am_util_debug_printf("Task data length: %d\n", task->dataLength);
-
-
-        am_util_debug_printf("Pointer to task data: %x\n", task->data);
-        am_util_debug_printf("Pointer to pkt task data: %x\n", &(pkt->taskData.data));
-        memcpy(&(pkt->taskData.data), task->data, task->dataLength);
-        am_util_debug_printf("memcpy data");
-        return DP_NEW_TASK_HEADER_SIZE + task->dataLength;
-
-
-    } else if (type == DP_PKT_TYPE_RESPONSE) {
-        pkt->len = task->dataLength;
-        am_util_debug_printf("Building response packet\n");
+        am_util_debug_printf("Building response packet ");
 
         if (task->status == DP_TASK_STATUS_COMPLETE) {
             pkt->taskData.statusWithData.status = task->status;
-
-            am_util_debug_printf("Pointer to task result: %x\n", task->result);
-            am_util_debug_printf("Pointer to pkt task data: %x\n", &(pkt->taskData.statusWithData.data));
+            am_util_debug_printf("for completed task %d, \n", task->taskId);
+            // am_util_debug_printf("Pointer to task result: %x\n", task->result);
+            // am_util_debug_printf("Pointer to pkt task data: %x\n", &(pkt->taskData.statusWithData.data));
             memcpy(&(pkt->taskData.statusWithData.data), task->result, task->dataLength);
             return DP_RESPONSE_HEADER_SIZE + task->dataLength;
         } 
-
-        pkt->taskData.status = task->status;
+        am_util_debug_printf("for unfinished task %d, \n", task->taskId);
+        pkt->len = 0;
+        pkt->taskData.statusWithData.status = task->status;
         return DP_RESPONSE_HEADER_SIZE;
-    }
 
-    return 0;
+    } else {
+        am_util_debug_printf("Building unknown packet for slave????\n");
+        while(1);
+        return 0;
+    }
 }
 
 
 void runExecuteTask(void *pvParameters) {
-    am_util_debug_printf("Running task\n");
     Task *task = (Task *) pvParameters;
+    am_util_debug_printf("Running task %d\n", task->taskId);
     executeTask(task);
 }
 
@@ -89,7 +79,7 @@ void runExecuteTask(void *pvParameters) {
  * @param connId The connection ID of the slave device
  */
 void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
-    am_util_debug_printf("Received data from transport layer\n");
+    // am_util_debug_printf("Received data from transport layer\n");
 
     if (len < DP_ENQUIRY_PKT_SIZE) {
         // Packet is too short, thats wrong
@@ -101,13 +91,13 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
     eDpPktType_t type = DpPkt->type;
 
     if (type == DP_PKT_TYPE_ENQUIRY) {
-        am_util_debug_printf("Received enquiry\n");
+        am_util_debug_printf("Received enquiry for task %d\n", DpPkt->taskId);
         // build response packet using task
-        uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_RESPONSE, &task, buf);
-        AmdtpsSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, buf, overallPacketLength, connId);
+        uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_RESPONSE, &task, dpBuf);
+        AmdtpsSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, dpBuf, overallPacketLength, connId);
 
     } else if (type == DP_PKT_TYPE_NEW_TASK) {
-        am_util_debug_printf("Received new task\n");
+        am_util_debug_printf("Received new task for task %d\n", DpPkt->taskId);
 
         if (task.status != DP_TASK_STATUS_IN_PROGRESS) {
 
@@ -115,8 +105,8 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
             task.taskId = DpPkt->taskId;
 
 
-            am_util_debug_printf("Pointer to task data: %x\n", task.data);
-            am_util_debug_printf("Pointer to pkt task data: %x\n", &(DpPkt->taskData.data));
+            // am_util_debug_printf("Pointer to task data: %x\n", task.data);
+            // am_util_debug_printf("Pointer to pkt task data: %x\n", &(DpPkt->taskData.data));
             memcpy(task.data, &(DpPkt->taskData.data), DpPkt->len);
             task.status = DP_TASK_STATUS_IN_PROGRESS;
 

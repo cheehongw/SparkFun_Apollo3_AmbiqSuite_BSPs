@@ -23,7 +23,9 @@ void reassembleSumTask(Task *tasks, size_t numTasks) {
     }
 
     int sum = 0;
+    int res = 0;
 
+    am_util_debug_printf("Summing all tasks...\n");
     for (int i = 0; i < numTasks; i++) {
         sum += *((int *) tasks[i].result);
     }

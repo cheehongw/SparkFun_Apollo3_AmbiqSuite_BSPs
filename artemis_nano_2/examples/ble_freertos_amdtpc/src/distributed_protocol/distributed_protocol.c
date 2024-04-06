@@ -9,19 +9,19 @@
 #include "am_util_stdio.h"
 #include "am_util_debug.h"
 
-#define MAX_TASKS 10
+#define MAX_TASKS 50
 
 TaskHandle_t distributionProtocolTaskHandle;
 
-Task tasks[MAX_TASKS];
+Task tasks[MAX_TASKS + 1];
 Client connectedClients[DM_CONN_MAX];
 
 size_t taskCount;
-dp_reassemble_task_results_t reassembleTaskResults;         // Application defined function to reassemble task results
+dp_reassemble_task_results_t customReassembleTaskResults;         // Application defined function to reassemble task results
 dp_initialize_tasks_t customInitializeTasks;                // Application defined function to initialize tasks  
 
-uint8_t buf[1024];
-Task* taskQueue[MAX_TASKS];
+uint8_t dpBuf[1024];                                        // Buffer to store the distributed protocol packet
+Task* taskQueue[MAX_TASKS + 1];
 int head = 0;
 int tail = 0;
 
@@ -31,18 +31,22 @@ bool isTaskQueueEmpty() {
     return head == tail;
 }
 
-void enqueueTask(Task* task) {
+bool enqueueTask(Task* task) {
     if ((tail + 1) % MAX_TASKS == head) {
         // Queue is full
-        return;
+        am_util_debug_printf("Task queue is full, cannot add task\n");
+        return false;
     }
 
     taskQueue[tail] = task;
     tail = (tail + 1) % MAX_TASKS;
+    return true;
 }
 
 void addTaskBackToQueue(Task *task) {
-    enqueueTask(task); // Add the task back to the task queue
+    if (!enqueueTask(task)) {
+        while(1); // Queue is full, this should not happen!
+    } // Add the task back to the task queue
 }
 
 
@@ -62,13 +66,21 @@ Task* dequeueTask() {
 
 void initializeTasks() {
     // Call the application defined function to initialize the location to store data and result
-    am_util_debug_printf("Initializing distributed tasks...");
+    am_util_debug_printf("Initializing distributed tasks...\n");
     customInitializeTasks(tasks, &taskCount); 
+
+    if (taskCount > MAX_TASKS) {
+        am_util_debug_printf("Too many tasks for dp to handle, this should not happen\n");
+        while(1); // Too many tasks, this should not happen
+    }
 
     for (int i = 0; i < taskCount; i++) {
         tasks[i].taskId = i;
         tasks[i].status = DP_TASK_STATUS_INCOMPLETE;
-        enqueueTask(&tasks[i]); // Add the incomplete task to the task queue
+        // am_util_debug_printf("Task %d initialized\n", i);
+        if (!enqueueTask(&tasks[i])) {
+            while(1); // Queue is full, this should not happen
+        }; // Add the incomplete task to the task queue
     }
 }
 
@@ -143,11 +155,13 @@ void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId) {
     if (type == DP_PKT_TYPE_RESPONSE) { //should only have this for master device
         Task *task = &tasks[pkt->taskId];
         eDpTaskStatus_t status = pkt->taskData.statusWithData.status;
-        am_util_debug_printf("Received response from client %d, task status: %d\n", connId, status);
+        am_util_debug_printf("Received response from client %d for task %d, task status: %d\n", connId, task->taskId, status);
 
         if (status == DP_TASK_STATUS_COMPLETE) {
             uint8_t resultLen = pkt->len;
-            memcpy(task->result, pkt->taskData.statusWithData.data, resultLen);
+            // am_util_debug_printf("Pointer to task result: %x\n", task->result);
+            // am_util_debug_printf("Pointer to pkt task result: %x\n", &(pkt->taskData.statusWithData.data));
+            memcpy(task->result, &(pkt->taskData.statusWithData.data), resultLen);
 
             task->status = DP_TASK_STATUS_COMPLETE;
             connectedClients[connId - 1].assignedTask = NULL; // Remove the task from the client
@@ -170,10 +184,10 @@ void sendTaskToClient(Client *client, Task *task) {
     am_util_debug_printf("Sending task %d to client %d\n", task->taskId, client->connId);
     task->status = DP_TASK_STATUS_IN_PROGRESS;
     client->assignedTask = task;
-    uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_NEW_TASK, task, buf, task->dataLength);
+    uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_NEW_TASK, task, dpBuf, task->dataLength);
 
     am_util_debug_printf("Invoking amdtpc send for task %d to client %d\n", task->taskId, client->connId);
-    AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, buf, overallPacketLength, client->connId);
+    AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, dpBuf, overallPacketLength, client->connId);
     
 }
 
@@ -189,7 +203,7 @@ int sendTasksToClients() {
 
         Task *task = dequeueTask();                     // Get the task from the task queue
         if (task == NULL) {
-            am_util_debug_printf("No tasks in the queue, exiting sendTasksToClients...");
+            am_util_debug_printf("No tasks in the queue, exiting sendTasksToClients...\n");
             break;
         }
 
@@ -203,11 +217,11 @@ int sendTasksToClients() {
 
 void pollClient(Client *client) {
     uint16_t overallPacketLength;
-    overallPacketLength = DpBuildPacket(DP_PKT_TYPE_ENQUIRY, client->assignedTask, buf, 0);
+    overallPacketLength = DpBuildPacket(DP_PKT_TYPE_ENQUIRY, client->assignedTask, dpBuf, 0);
     am_util_debug_printf("Polling client %d\n", client->connId);
-    if (AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, buf, overallPacketLength, client->connId) == AMDTP_STATUS_SUCCESS) {
-        xSemaphoreTake(client->receivedReplySem, portMAX_DELAY);
-    };
+    while (AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, dpBuf, overallPacketLength, client->connId) != AMDTP_STATUS_SUCCESS);
+    am_util_debug_printf("Poll request sent to client %d for task %d, waiting for reply before polling others...\n", client->connId, client->assignedTask->taskId);
+    xSemaphoreTake(client->receivedReplySem, portMAX_DELAY);
     // will block until the semaphore is given in the recv callback
 }
 
@@ -222,7 +236,7 @@ void pollClientsForReplies() {
 }
 
 bool areAllTasksCompleted() {
-    for (int i = 0; i < MAX_TASKS; i++) {
+    for (int i = 0; i < taskCount; i++) {
         if (tasks[i].status != DP_TASK_STATUS_COMPLETE) {
             return false;
         }
@@ -251,7 +265,7 @@ void doDistributedTask() {
     initializeTasks();
 
     if (areClientsConnected() == 0) {
-        am_util_debug_printf("No clients connected, exiting distributed task...");
+        am_util_debug_printf("No clients connected, exiting distributed task...\n");
         vTaskDelete(NULL); //task complete, stop the task...
         return;
     }
@@ -261,14 +275,15 @@ void doDistributedTask() {
     while (!areAllTasksCompleted()) {
         pollClientsForReplies();
         if (sendTasksToClients() == 0) {
-            am_util_debug_printf("No tasks sent, inserting extra time...");
+            am_util_debug_printf("No tasks sent, inserting extra time...\n");
             
-            vTaskDelay(300); // Wait for 0.3 seconds before polling clients again
+            vTaskDelay(1000); // Wait for 0.3 seconds before polling clients again
         };
     }
 
     // Reassemble results
-    reassembleTaskResults(tasks, taskCount);
+    am_util_debug_printf("Reassembling task results... %x\n", customReassembleTaskResults);
+    customReassembleTaskResults(tasks, taskCount);
 
     vTaskDelete(NULL); //task complete, stop the task...
 }
@@ -304,5 +319,5 @@ void initializeDistributedProtocol(dp_initialize_tasks_t initializeTasks, dp_rea
 
     taskCount = 0;
     customInitializeTasks = initializeTasks;
-    reassembleTaskResults = reassembleTaskResults;
+    customReassembleTaskResults = reassembleTaskResults;
 }
