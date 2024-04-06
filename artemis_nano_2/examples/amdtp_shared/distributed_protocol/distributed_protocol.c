@@ -10,6 +10,10 @@
 #include "amdtps_api.h"
 #endif
 
+#if DP_MASTER
+#include "amdtpc_api.h"
+#endif
+
 #include "am_util_stdio.h"
 #include "am_util_debug.h"
 
@@ -274,7 +278,7 @@ void sendTaskToClient(Client *client, Task *task) {
     am_util_debug_printf("Sending task %d to client %d\n", task->taskId, client->connId);
     task->status = DP_TASK_STATUS_IN_PROGRESS;
     client->assignedTask = task;
-    uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_NEW_TASK, task, dpBuf, task->dataLength);
+    uint16_t overallPacketLength = DpBuildPacket(DP_PKT_TYPE_NEW_TASK, task, dpBuf);
 
     am_util_debug_printf("Invoking amdtpc send for task %d to client %d\n", task->taskId, client->connId);
     am_util_debug_printf("packet dump:\n");
@@ -309,7 +313,7 @@ int sendTasksToClients() {
 
 void pollClient(Client *client) {
     uint16_t overallPacketLength;
-    overallPacketLength = DpBuildPacket(DP_PKT_TYPE_ENQUIRY, client->assignedTask, dpBuf, 0);
+    overallPacketLength = DpBuildPacket(DP_PKT_TYPE_ENQUIRY, client->assignedTask, dpBuf);
     am_util_debug_printf("Polling client %d\n", client->connId);
     while (AmdtpcSendPacket(AMDTP_PKT_TYPE_DATA, 0, 1, dpBuf, overallPacketLength, client->connId) != AMDTP_STATUS_SUCCESS);
     am_util_debug_printf("Poll request sent to client %d for task %d, waiting for reply before polling others...\n", client->connId, client->assignedTask->taskId);
@@ -403,8 +407,9 @@ void removeConnectedClient(dmConnId_t connId) {
 
 void initializeDistributedProtocol() {
     // Initialize the distributed protocol
-    am_util_debug_printf("Initializing distributed protocol...\n");
+    am_util_debug_printf("Initializing distributed protocol...");
 #if DP_MASTER
+    am_util_debug_printf("for master...\n");
     for (int i = 0; i < DM_CONN_MAX; i++) {
         connectedClients[i].connId = 0;
         connectedClients[i].assignedTask = NULL;
@@ -415,6 +420,7 @@ void initializeDistributedProtocol() {
 #endif
 
 #if DP_SLAVE
+    am_util_debug_printf("for slave...\n");
     initServerTask(&task);
 #endif
 }

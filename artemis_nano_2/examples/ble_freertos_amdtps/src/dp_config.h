@@ -1,0 +1,1 @@
+#define DP_SLAVE 1

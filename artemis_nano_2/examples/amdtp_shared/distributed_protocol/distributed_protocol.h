@@ -4,7 +4,7 @@
 #include "dm_api.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
-#include "amdtpc_api.h"
+#include "dp_config.h"
 
 typedef enum eDpPktType {
     DP_PKT_TYPE_UNKNOWN,

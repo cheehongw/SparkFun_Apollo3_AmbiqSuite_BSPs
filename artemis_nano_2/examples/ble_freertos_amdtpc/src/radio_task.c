@@ -107,6 +107,7 @@
 //
 //*****************************************************************************
 TaskHandle_t radio_task_handle;
+#define DP_MASTER 1
 
 //*****************************************************************************
 //
@@ -347,7 +348,7 @@ RadioTask(void *pvParameters)
     // }
 
     // initialize and clear all existing clients in distributed protocol
-    initializeDistributedProtocol(initializeSumTask, reassembleSumTask);
+    initializeDistributedProtocol();
 
     //
     // Start the "Amdtp" profile.

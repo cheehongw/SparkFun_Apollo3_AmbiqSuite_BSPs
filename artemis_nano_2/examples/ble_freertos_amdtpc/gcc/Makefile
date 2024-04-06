@@ -239,7 +239,7 @@ INCLUDES+= -I../../amdtp_shared/profiles/amdtpcommon
 INCLUDES+= -I../src/profiles
 INCLUDES+= -I../src/apps
 INCLUDES+= -I../src/menu
-INCLUDES+= -I../src/distributed_protocol
+INCLUDES+= -I../../amdtp_shared/distributed_protocol
 INCLUDES+= -I../../amdtp_shared/distributed_sum
 INCLUDES+= -I$(BOARDPATH)/bsp
 
@@ -274,7 +274,7 @@ VPATH+=:../../amdtp_shared/profiles/amdtpcommon
 VPATH+=:../src/apps
 VPATH+=:../src/profiles
 VPATH+=:../src/menu
-VPATH+=:../src/distributed_protocol
+VPATH+=:../../amdtp_shared/distributed_protocol
 VPATH+=:../../amdtp_shared/distributed_sum
 VPATH+=:$(BOARDPATH)/bsp
 

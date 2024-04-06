@@ -462,7 +462,7 @@ SRC += queue.c
 SRC += tasks.c
 SRC += timers.c
 SRC += startup_gcc.c
-SRC += distributed_protocol_s.c
+SRC += distributed_protocol.c
 SRC += distributed_sum.c
 
 CSRC = $(filter %.c,$(SRC))
