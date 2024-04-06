@@ -4,6 +4,7 @@
 #include "dm_api.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "amdtpc_api.h"
 
 typedef enum eDpPktType {
     DP_PKT_TYPE_UNKNOWN,
@@ -69,12 +70,10 @@ void addConnectedClient(dmConnId_t connId);
 void removeConnectedClient(dmConnId_t connId);
 void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId);
 
-
-// These functions are defined in the application layer
-extern void executeTask(Task *task);        // Called by the slave
-extern void initClientTasks(Task *tasks, size_t *numTasks);       // Called by the master
-extern void initServerTask(Task *task);                 // Called by the slave
-extern void reassembleTaskResults(Task *tasks, size_t numTasksCompleted);       // Called by the master
+extern void executeTask(Task *task);
+extern void initClientTasks(Task *tasks, size_t *numTasks);
+extern void initServerTask(Task *task);
+extern void reassembleTaskResults(Task *tasks, size_t numTasksCompleted);
 
 
 extern TaskHandle_t distributionProtocolTaskHandle;

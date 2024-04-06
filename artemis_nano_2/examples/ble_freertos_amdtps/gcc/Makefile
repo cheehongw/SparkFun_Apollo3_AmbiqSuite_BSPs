@@ -237,7 +237,7 @@ INCLUDES+= -I../src/apps
 INCLUDES+= -I../src/profiles
 INCLUDES+= -I../../amdtp_shared/services
 INCLUDES+= -I../../amdtp_shared/profiles/amdtpcommon
-INCLUDES+= -I../src/distributed_protocol
+INCLUDES+= -I../../amdtp_shared/distributed_protocol
 INCLUDES+= -I../../amdtp_shared/distributed_sum
 
 VPATH = ../../../../../third_party/cordio/ble-host/sources/sec/common
@@ -271,7 +271,7 @@ VPATH+=:../../amdtp_shared/services
 VPATH+=:../../amdtp_shared/profiles/amdtpcommon
 VPATH+=:../src/apps
 VPATH+=:../src/profiles
-VPATH+=:../src/distributed_protocol
+VPATH+=:../../amdtp_shared/distributed_protocol
 VPATH+=:../../amdtp_shared/distributed_sum
 
 SRC = sec_aes.c

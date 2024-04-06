@@ -7,7 +7,7 @@ int randomData[APP_TASK_COUNT];
 int resultData[APP_TASK_COUNT];
 
 
-void initializeSumTask(Task *tasks, size_t *numTasks) {
+void initClientTasks(Task *tasks, size_t *numTasks) {
     
     *numTasks = APP_TASK_COUNT;
 
@@ -19,13 +19,13 @@ void initializeSumTask(Task *tasks, size_t *numTasks) {
     }
 }
 
-void initializeTaskServer(Task *task) {
+void initServerTask(Task *task) {
     task->data = &randomData[0];
     task->dataLength = sizeof(int);
     task->result = &resultData[0];
 }
 
-void reassembleSumTask(Task *tasks, size_t numTasks) {
+void reassembleTaskResults(Task *tasks, size_t numTasks) {
     if (numTasks < APP_TASK_COUNT) {
         am_util_debug_printf("Not all tasks are complete...\n");
     }
