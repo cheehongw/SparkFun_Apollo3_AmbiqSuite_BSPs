@@ -26,6 +26,11 @@ void initServerTask(Task *task) {
     task->result = &resultData[0];
 }
 
+void copyTaskDataToSendBuffer(uint8_t *buffer, Task *task) {
+    am_util_stdio_printf("Copying task data to send buffer\n");
+    memcpy(buffer, task->data, task->dataLength);
+}
+
 void reassembleTaskResults(Task *tasks, size_t numTasks) {
     if (numTasks < APP_TASK_COUNT) {
         am_util_debug_printf("Not all tasks are complete...\n");
