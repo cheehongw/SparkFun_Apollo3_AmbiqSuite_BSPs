@@ -64,7 +64,7 @@ extern "C"
 // Macro definitions
 //
 //*****************************************************************************
-#define AMDTP_MAX_PAYLOAD_SIZE          2048 * 8//512
+#define AMDTP_MAX_PAYLOAD_SIZE          2048 * 4//512
 #define AMDTP_PACKET_SIZE               (AMDTP_MAX_PAYLOAD_SIZE + AMDTP_PREFIX_SIZE_IN_PKT + AMDTP_CRC_SIZE_IN_PKT)    // Bytes
 #define AMDTP_LENGTH_SIZE_IN_PKT        2
 #define AMDTP_HEADER_SIZE_IN_PKT        2

@@ -66,9 +66,9 @@ static void amdtpcHandleWriteResponse(attEvt_t *pMsg);
 //
 //*****************************************************************************
 
-uint8_t rxPktBuf[AMDTP_PACKET_SIZE];
-uint8_t txPktBuf[AMDTP_PACKET_SIZE];
-uint8_t ackPktBuf[20];
+uint8_t rxPktBuf[AMDTP_PACKET_SIZE][DM_CONN_MAX];
+uint8_t txPktBuf[AMDTP_PACKET_SIZE][DM_CONN_MAX];
+uint8_t ackPktBuf[20][DM_CONN_MAX];
 
 
 /**************************************************************************************************
@@ -230,7 +230,7 @@ amdtpcSendAck(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t 
     return AMDTP_STATUS_SUCCESS;
 }
 
-void amdtpc_init_single(amdtpCb_t *core, wsfHandlerId_t handlerId, amdtpRecvCback_t recvCback, amdtpTransCback_t transCback)
+void amdtpc_init_single(amdtpCb_t *core, wsfHandlerId_t handlerId, amdtpRecvCback_t recvCback, amdtpTransCback_t transCback, int i)
 {
     APP_TRACE_INFO1("amdtpc_init_single(), core address = %x\n", core);
     core->txState = AMDTP_STATE_TX_IDLE;
@@ -241,13 +241,13 @@ void amdtpc_init_single(amdtpCb_t *core, wsfHandlerId_t handlerId, amdtpRecvCbac
     core->txPktSn = 0;
 
     resetPkt(&(core->rxPkt));
-    core->rxPkt.data = rxPktBuf;
+    core->rxPkt.data = rxPktBuf[i];
 
     resetPkt(&(core->txPkt));
-    core->txPkt.data = txPktBuf;
+    core->txPkt.data = txPktBuf[i];
 
     resetPkt(&(core->ackPkt));
-    core->ackPkt.data = ackPktBuf;
+    core->ackPkt.data = ackPktBuf[i];
 
     core->recvCback = recvCback;
     core->transCback = transCback;
@@ -266,7 +266,7 @@ amdtpc_init(wsfHandlerId_t handlerId, amdtpRecvCback_t recvCback, amdtpTransCbac
     {
         APP_TRACE_INFO1("amdtpc_init(), core address = %x", &amdtpcCb[i].core);
         amdtpcCb[i].txReady = false;
-        amdtpc_init_single(&amdtpcCb[i].core, handlerId, recvCback, transCback);
+        amdtpc_init_single(&amdtpcCb[i].core, handlerId, recvCback, transCback, i);
     }
 
 }
