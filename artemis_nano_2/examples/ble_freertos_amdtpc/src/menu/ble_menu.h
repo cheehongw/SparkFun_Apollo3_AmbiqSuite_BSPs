@@ -57,8 +57,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdarg.h>
-#include "distributed_protocol.h"
-
 
 #ifdef __cplusplus
 extern "C"
@@ -71,7 +69,6 @@ typedef enum
     BLE_MENU_ID_GAP,
     BLE_MENU_ID_GATT,
     BLE_MENU_ID_AMDTP,
-    BLE_MENU_ID_DISTRIBUTED,
     BLE_MENU_ID_MAX
 }eBleMenuId;
 
@@ -108,8 +105,6 @@ typedef struct
     eBleMenuId menuId;
     eGapMenuId gapMenuSelected;
     eGattMenuId gattMenuSelected;
-    eAmdtpMenuId amdtpMenuSelected;
-    uint8_t targetNodeIdx;
 }sBleMenuCb;
 
 extern char menuRxData[20];

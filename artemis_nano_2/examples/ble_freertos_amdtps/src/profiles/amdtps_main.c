@@ -92,10 +92,10 @@ static int totalLen = 0;
 static struct
 {
     amdtpsConn_t            conn[DM_CONN_MAX];      // connection control block
-    bool_t                  txReady[DM_CONN_MAX];                // TRUE if ready to send notifications
+    bool_t                  txReady;                // TRUE if ready to send notifications
     wsfHandlerId_t          appHandlerId;
     AmdtpsCfg_t             cfg;                    // configurable parameters
-    amdtpCb_t               core[DM_CONN_MAX];
+    amdtpCb_t               core;
 }
 amdtpsCb;
 
@@ -172,7 +172,7 @@ amdtps_find_next2send(void)
 //
 //*****************************************************************************
 static void
-amdtpsSendData(uint8_t *buf, uint16_t len, dmConnId_t connId)
+amdtpsSendData(uint8_t *buf, uint16_t len)
 {
     amdtpsSetupToSend();
     amdtpsConn_t *pConn = amdtps_find_next2send();
@@ -183,13 +183,13 @@ amdtpsSendData(uint8_t *buf, uint16_t len, dmConnId_t connId)
     AttsHandleValueNtf(pConn->connId, AMDTPS_TX_HDL, len, buf);
 
     pConn->amdtpToSend = false;
-    amdtpsCb.txReady[pConn->connId - 1] = false;
+    amdtpsCb.txReady = false;
 }
 
 static eAmdtpStatus_t
-amdtpsSendAck(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t *buf, uint16_t len, dmConnId_t connId)
+amdtpsSendAck(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t *buf, uint16_t len)
 {
-    AmdtpBuildPkt(&amdtpsCb.core[connId - 1], type, encrypted, enableACK, buf, len);
+    AmdtpBuildPkt(&amdtpsCb.core, type, encrypted, enableACK, buf, len);
     // send packet
     amdtpsSetupToSend();
     amdtpsConn_t *pConn = amdtps_find_next2send();
@@ -197,7 +197,7 @@ amdtpsSendAck(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t 
 #ifdef AMDTP_DEBUG_ON
         APP_TRACE_INFO1("amdtpsSendAck(), Send to connId = %d\n", pConn->connId);
 #endif
-    AttsHandleValueNtf(pConn->connId, AMDTPS_ACK_HDL, amdtpsCb.core[pConn->connId - 1].ackPkt.len, amdtpsCb.core[pConn->connId - 1].ackPkt.data);
+    AttsHandleValueNtf(pConn->connId, AMDTPS_ACK_HDL, amdtpsCb.core.ackPkt.len, amdtpsCb.core.ackPkt.data);
 
     pConn->amdtpToSend = false;
 
@@ -213,12 +213,11 @@ static void
 amdtps_timeout_timer_expired(wsfMsgHdr_t *pMsg)
 {
     uint8_t data[1];
-    dmConnId_t connId = pMsg->param;
-    data[0] = amdtpsCb.core[connId - 1].txPktSn;
-    APP_TRACE_INFO1("amdtps tx timeout, txPktSn = %d", amdtpsCb.core[connId - 1].txPktSn);
-    AmdtpSendControl(&amdtpsCb.core[connId - 1], AMDTP_CONTROL_RESEND_REQ, data, 1);
+    data[0] = amdtpsCb.core.txPktSn;
+    APP_TRACE_INFO1("amdtps tx timeout, txPktSn = %d", amdtpsCb.core.txPktSn);
+    AmdtpSendControl(&amdtpsCb.core, AMDTP_CONTROL_RESEND_REQ, data, 1);
     // fire a timer for receiving an AMDTP_STATUS_RESEND_REPLY ACK
-    WsfTimerStartMs(&amdtpsCb.core[connId - 1].timeoutTimer, amdtpsCb.core[connId - 1].txTimeoutMs);
+    WsfTimerStartMs(&amdtpsCb.core.timeoutTimer, amdtpsCb.core.txTimeoutMs);
 }
 
 /*************************************************************************************************/
@@ -241,15 +240,15 @@ amdtpsHandleValueCnf(attEvt_t *pMsg)
 #if !defined(AMDTPS_RXONLY) && !defined(AMDTPS_RX2TX)
         if (pMsg->handle == AMDTPS_TX_HDL)
         {
-            amdtpsCb.txReady[pMsg->hdr.param - 1] = true;
+            amdtpsCb.txReady = true;
             // process next data
-            AmdtpSendPacketHandler(&amdtpsCb.core[pMsg->hdr.param - 1]);
+            AmdtpSendPacketHandler(&amdtpsCb.core);
 #ifdef AMDTPS_TXTEST
-            if (amdtpsCb.core[pMsg->hdr.param - 1].txState == AMDTP_STATE_WAITING_ACK)
+            if (amdtpsCb.core.txState == AMDTP_STATE_WAITING_ACK)
             {
                 uint8_t temp[3];
                 temp[0] = AMDTP_STATUS_SUCCESS;
-                AmdtpPacketHandler(&amdtpsCb.core[pMsg->hdr.param - 1], AMDTP_PKT_TYPE_ACK, 3, temp);
+                AmdtpPacketHandler(&amdtpsCb.core, AMDTP_PKT_TYPE_ACK, 3, temp);
             }
 #endif
         }
@@ -299,34 +298,34 @@ amdtps_init(wsfHandlerId_t handlerId, AmdtpsCfg_t *pCfg, amdtpRecvCback_t recvCb
 {
     memset(&amdtpsCb, 0, sizeof(amdtpsCb));
     amdtpsCb.appHandlerId = handlerId;
+    amdtpsCb.txReady = false;
+    amdtpsCb.core.txState = AMDTP_STATE_INIT;
+    amdtpsCb.core.rxState = AMDTP_STATE_RX_IDLE;
+    amdtpsCb.core.timeoutTimer.handlerId = handlerId;
     for (int i = 0; i < DM_CONN_MAX; i++)
     {
-        amdtpsCb.txReady[i] = false;
-        amdtpsCb.core[i].txState = AMDTP_STATE_INIT;
-        amdtpsCb.core[i].rxState = AMDTP_STATE_RX_IDLE;
-        amdtpsCb.core[i].timeoutTimer.handlerId = handlerId;
         amdtpsCb.conn[i].connId = DM_CONN_ID_NONE;
-        amdtpsCb.core[i].lastRxPktSn = 0;
-        amdtpsCb.core[i].txPktSn = 0;
-
-        resetPkt(&amdtpsCb.core[i].rxPkt);
-        amdtpsCb.core[i].rxPkt.data = rxPktBuf;
-
-        resetPkt(&amdtpsCb.core[i].txPkt);
-        amdtpsCb.core[i].txPkt.data = txPktBuf;
-
-        resetPkt(&amdtpsCb.core[i].ackPkt);
-        amdtpsCb.core[i].ackPkt.data = ackPktBuf;
-
-        amdtpsCb.core[i].recvCback = recvCback;
-        amdtpsCb.core[i].transCback = transCback;
-
-        amdtpsCb.core[i].txTimeoutMs = TX_TIMEOUT_DEFAULT;
-
-        amdtpsCb.core[i].data_sender_func = amdtpsSendData;
-        amdtpsCb.core[i].ack_sender_func = amdtpsSendAck;
     }
 
+    amdtpsCb.core.lastRxPktSn = 0;
+    amdtpsCb.core.txPktSn = 0;
+
+    resetPkt(&amdtpsCb.core.rxPkt);
+    amdtpsCb.core.rxPkt.data = rxPktBuf;
+
+    resetPkt(&amdtpsCb.core.txPkt);
+    amdtpsCb.core.txPkt.data = txPktBuf;
+
+    resetPkt(&amdtpsCb.core.ackPkt);
+    amdtpsCb.core.ackPkt.data = ackPktBuf;
+
+    amdtpsCb.core.recvCback = recvCback;
+    amdtpsCb.core.transCback = transCback;
+
+    amdtpsCb.core.txTimeoutMs = TX_TIMEOUT_DEFAULT;
+
+    amdtpsCb.core.data_sender_func = amdtpsSendData;
+    amdtpsCb.core.ack_sender_func = amdtpsSendAck;
 }
 
 static void
@@ -338,14 +337,14 @@ amdtps_conn_close(dmEvt_t *pMsg)
     amdtpsCb.conn[connId - 1].connId = DM_CONN_ID_NONE;
     amdtpsCb.conn[connId - 1].amdtpToSend = FALSE;
 
-    WsfTimerStop(&amdtpsCb.core[connId - 1].timeoutTimer);
-    amdtpsCb.core[connId - 1].txState = AMDTP_STATE_INIT;
-    amdtpsCb.core[connId - 1].rxState = AMDTP_STATE_RX_IDLE;
-    amdtpsCb.core[connId - 1].lastRxPktSn = 0;
-    amdtpsCb.core[connId - 1].txPktSn = 0;
-    resetPkt(&amdtpsCb.core[connId - 1].rxPkt);
-    resetPkt(&amdtpsCb.core[connId - 1].txPkt);
-    resetPkt(&amdtpsCb.core[connId - 1].ackPkt);
+    WsfTimerStop(&amdtpsCb.core.timeoutTimer);
+    amdtpsCb.core.txState = AMDTP_STATE_INIT;
+    amdtpsCb.core.rxState = AMDTP_STATE_RX_IDLE;
+    amdtpsCb.core.lastRxPktSn = 0;
+    amdtpsCb.core.txPktSn = 0;
+    resetPkt(&amdtpsCb.core.rxPkt);
+    resetPkt(&amdtpsCb.core.txPkt);
+    resetPkt(&amdtpsCb.core.ackPkt);
 
 #if defined(AMDTPS_RXONLY) || defined(AMDTPS_RX2TX)
     APP_TRACE_INFO1("*** RECEIVED TOTAL %d ***", totalLen);
@@ -380,26 +379,26 @@ amdtps_write_cback(dmConnId_t connId, uint16_t handle, uint8_t operation,
         APP_TRACE_INFO2("received data len %d, total %d", len, totalLen);
         return ATT_SUCCESS;
 #else /* RXONLY && RX2TX */
-        status = AmdtpReceivePkt(&amdtpsCb.core[connId - 1], &amdtpsCb.core[connId - 1].rxPkt, len, pValue);
+        status = AmdtpReceivePkt(&amdtpsCb.core, &amdtpsCb.core.rxPkt, len, pValue);
 #endif /* RXONLY && RX2TX */
     }
     else if (handle == AMDTPS_ACK_HDL)
     {
-        status = AmdtpReceivePkt(&amdtpsCb.core[connId - 1], &amdtpsCb.core[connId - 1].ackPkt, len, pValue);
+        status = AmdtpReceivePkt(&amdtpsCb.core, &amdtpsCb.core.ackPkt, len, pValue);
     }
 
     if (status == AMDTP_STATUS_RECEIVE_DONE)
     {
         if (handle == AMDTPS_RX_HDL)
         {
-            pkt = &amdtpsCb.core[connId - 1].rxPkt;
+            pkt = &amdtpsCb.core.rxPkt;
         }
         else if (handle == AMDTPS_ACK_HDL)
         {
-            pkt = &amdtpsCb.core[connId - 1].ackPkt;
+            pkt = &amdtpsCb.core.ackPkt;
         }
 
-        AmdtpPacketHandler(&amdtpsCb.core[connId - 1], (eAmdtpPktType_t)pkt->header.pktType, pkt->len - AMDTP_CRC_SIZE_IN_PKT, pkt->data);
+        AmdtpPacketHandler(&amdtpsCb.core, (eAmdtpPktType_t)pkt->header.pktType, pkt->len - AMDTP_CRC_SIZE_IN_PKT, pkt->data);
     }
 
     return ATT_SUCCESS;
@@ -414,15 +413,12 @@ amdtps_start(dmConnId_t connId, uint8_t timerEvt, uint8_t amdtpCccIdx)
     amdtpsCb.conn[connId - 1].connId = connId;
     amdtpsCb.conn[connId - 1].amdtpToSend = TRUE;
 
-    amdtpsCb.core[connId - 1].timeoutTimer.msg.event = timerEvt;
-    amdtpsCb.core[connId - 1].timeoutTimer.msg.param = connId;
-    
-    amdtpsCb.core[connId - 1].connId = connId;
-    amdtpsCb.core[connId - 1].txState = AMDTP_STATE_TX_IDLE;
-    amdtpsCb.txReady[connId - 1] = true;
+    amdtpsCb.core.timeoutTimer.msg.event = timerEvt;
+    amdtpsCb.core.txState = AMDTP_STATE_TX_IDLE;
+    amdtpsCb.txReady = true;
 
-    amdtpsCb.core[connId - 1].attMtuSize = AttGetMtu(connId);
-    APP_TRACE_INFO1("MTU size = %d bytes", amdtpsCb.core[connId - 1].attMtuSize);
+    amdtpsCb.core.attMtuSize = AttGetMtu(connId);
+    APP_TRACE_INFO1("MTU size = %d bytes", amdtpsCb.core.attMtuSize);
 }
 
 void
@@ -434,8 +430,8 @@ amdtps_stop(dmConnId_t connId)
     amdtpsCb.conn[connId - 1].connId = DM_CONN_ID_NONE;
     amdtpsCb.conn[connId - 1].amdtpToSend = FALSE;
 
-    amdtpsCb.core[connId - 1].txState = AMDTP_STATE_INIT;
-    amdtpsCb.txReady[connId - 1] = false;
+    amdtpsCb.core.txState = AMDTP_STATE_INIT;
+    amdtpsCb.txReady = false;
 }
 
 
@@ -454,13 +450,13 @@ amdtps_proc_msg(wsfMsgHdr_t *pMsg)
     {
         amdtps_conn_update((dmEvt_t *) pMsg);
     }
+    else if (pMsg->event == amdtpsCb.core.timeoutTimer.msg.event)
+    {
+        amdtps_timeout_timer_expired(pMsg);
+    }
     else if (pMsg->event == ATTS_HANDLE_VALUE_CNF)
     {
         amdtpsHandleValueCnf((attEvt_t *) pMsg);
-    }
-    else if (pMsg->event == amdtpsCb.core[pMsg->param - 1].timeoutTimer.msg.event)
-    {
-        amdtps_timeout_timer_expired(pMsg);
     }
 }
 
@@ -473,18 +469,17 @@ amdtps_proc_msg(wsfMsgHdr_t *pMsg)
 //! @param enableACK - does client need to response
 //! @param buf - data
 //! @param len - data length
-//! @param connId - connection handle
 //!
 //! @return status
 //
 //*****************************************************************************
 eAmdtpStatus_t
-AmdtpsSendPacket(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t *buf, uint16_t len, dmConnId_t connId)
+AmdtpsSendPacket(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t *buf, uint16_t len)
 {
     //
     // Check if ready to send notification
     //
-    if ( !amdtpsCb.txReady[connId - 1] )
+    if ( !amdtpsCb.txReady )
     {
         //set in callback amdtpsHandleValueCnf
         APP_TRACE_INFO1("data sending failed, not ready for notification.", NULL);
@@ -494,9 +489,9 @@ AmdtpsSendPacket(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8
     //
     // Check if the service is idle to send
     //
-    if ( amdtpsCb.core[connId - 1].txState != AMDTP_STATE_TX_IDLE )
+    if ( amdtpsCb.core.txState != AMDTP_STATE_TX_IDLE )
     {
-        APP_TRACE_INFO1("data sending failed, tx state = %d", amdtpsCb.core[connId - 1].txState);
+        APP_TRACE_INFO1("data sending failed, tx state = %d", amdtpsCb.core.txState);
         return AMDTP_STATUS_BUSY;
     }
 
@@ -509,10 +504,10 @@ AmdtpsSendPacket(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8
         return AMDTP_STATUS_INVALID_PKT_LENGTH;
     }
 
-    AmdtpBuildPkt(&amdtpsCb.core[connId - 1], type, encrypted, enableACK, buf, len);
+    AmdtpBuildPkt(&amdtpsCb.core, type, encrypted, enableACK, buf, len);
 
     // send packet
-    AmdtpSendPacketHandler(&amdtpsCb.core[connId - 1]);
+    AmdtpSendPacketHandler(&amdtpsCb.core);
 
     return AMDTP_STATUS_SUCCESS;
 }

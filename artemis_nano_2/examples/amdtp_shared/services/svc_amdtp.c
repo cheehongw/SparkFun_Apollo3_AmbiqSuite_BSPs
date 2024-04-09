@@ -119,7 +119,7 @@ static const uint16_t amdtpLenAckChCcc = sizeof(amdtpAckChCcc);
 
 
 /* Attribute list for AMDTP group */
-static const attsAttr_t amdtpList[] = 
+static const attsAttr_t amdtpList[] =
 {
   {
     attPrimSvcUuid,

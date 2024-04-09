@@ -193,7 +193,7 @@ AmdtpPacketHandler(amdtpCb_t *amdtpCb, eAmdtpPktType_t type, uint16_t len, uint8
             AmdtpSendReply(amdtpCb, AMDTP_STATUS_SUCCESS, NULL, 0);
             if (amdtpCb->recvCback)
             {
-                amdtpCb->recvCback(buf, len, amdtpCb->connId);
+                amdtpCb->recvCback(buf, len);
             }
 
             amdtpCb->rxState = AMDTP_STATE_RX_IDLE;
@@ -206,7 +206,6 @@ AmdtpPacketHandler(amdtpCb_t *amdtpCb, eAmdtpPktType_t type, uint16_t len, uint8
             eAmdtpStatus_t status = (eAmdtpStatus_t)buf[0];
             // stop tx timeout timer
             WsfTimerStop(&amdtpCb->timeoutTimer);
-            APP_TRACE_INFO0("AmdtpPacketHandler: ACK received\n");
 
             if (amdtpCb->txState != AMDTP_STATE_TX_IDLE)
             {
@@ -217,7 +216,6 @@ AmdtpPacketHandler(amdtpCb_t *amdtpCb, eAmdtpPktType_t type, uint16_t len, uint8
             if (status == AMDTP_STATUS_CRC_ERROR || status == AMDTP_STATUS_RESEND_REPLY)
             {
                 // resend packet
-                APP_TRACE_INFO1("AmdtpPacketHandler: resend packet, status = %d\n", status);
                 AmdtpSendPacketHandler(amdtpCb);
             }
             else
@@ -239,7 +237,7 @@ AmdtpPacketHandler(amdtpCb_t *amdtpCb, eAmdtpPktType_t type, uint16_t len, uint8
                 // notify application layer
                 if (amdtpCb->transCback)
                 {
-                    amdtpCb->transCback(status, amdtpCb->connId);
+                    amdtpCb->transCback(status);
                 }
             }
             resetPkt(&amdtpCb->ackPkt);
@@ -348,7 +346,7 @@ AmdtpSendReply(amdtpCb_t *amdtpCb, eAmdtpStatus_t status, uint8_t *data, uint16_
     {
         memcpy(buf + 1, data, len);
     }
-    st = amdtpCb->ack_sender_func(AMDTP_PKT_TYPE_ACK, false, false, buf, len + 1, amdtpCb->connId);
+    st = amdtpCb->ack_sender_func(AMDTP_PKT_TYPE_ACK, false, false, buf, len + 1);
     if (st != AMDTP_STATUS_SUCCESS)
     {
         APP_TRACE_WARN1("AmdtpSendReply status = %d\n", status);
@@ -374,7 +372,7 @@ AmdtpSendControl(amdtpCb_t *amdtpCb, eAmdtpControl_t control, uint8_t *data, uin
     {
         memcpy(buf + 1, data, len);
     }
-    st = amdtpCb->ack_sender_func(AMDTP_PKT_TYPE_CONTROL, false, false, buf, len + 1, amdtpCb->connId);
+    st = amdtpCb->ack_sender_func(AMDTP_PKT_TYPE_CONTROL, false, false, buf, len + 1);
     if (st != AMDTP_STATUS_SUCCESS)
     {
         APP_TRACE_WARN1("AmdtpSendControl status = %d\n", st);
@@ -394,11 +392,8 @@ AmdtpSendPacketHandler(amdtpCb_t *amdtpCb)
         amdtpCb->txState = AMDTP_STATE_SENDING;
     }
 
-    // APP_TRACE_INFO2("sendpackethandler len = %d, offset = %d\n", txPkt->len, txPkt->offset);
-
     if ( txPkt->offset >= txPkt->len )
     {
-        APP_TRACE_INFO0("sendpackethandler awaiting ack\n");
         // done sent packet
         amdtpCb->txState = AMDTP_STATE_WAITING_ACK;
         // start tx timeout timer
@@ -406,17 +401,12 @@ AmdtpSendPacketHandler(amdtpCb_t *amdtpCb)
     }
     else
     {
-        APP_TRACE_INFO0("sendpackethandler sending packet\n");
         remainingBytes = txPkt->len - txPkt->offset;
         transferSize = ((amdtpCb->attMtuSize - 3) > remainingBytes)
                                             ? remainingBytes
                                             : (amdtpCb->attMtuSize - 3);
         // send packet
-        // APP_TRACE_INFO3("sendpackethandler2 len = %d, offset = %d, transfersize = %d\n", txPkt->len, txPkt->offset, transferSize);
-
-        int offset = txPkt->offset;
+        amdtpCb->data_sender_func(&txPkt->data[txPkt->offset], transferSize);
         txPkt->offset += transferSize;
-        amdtpCb->data_sender_func(&txPkt->data[offset], transferSize, amdtpCb->connId);
-        // APP_TRACE_INFO3("sendpackethandler3 len = %d, offset = %d, transfersize = %d\n", txPkt->len, txPkt->offset, transferSize);
     }
 }

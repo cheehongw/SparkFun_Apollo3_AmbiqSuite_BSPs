@@ -32,8 +32,6 @@
 #include "am_util.h"
 #include "gatt_api.h"
 #include "atts_main.h"
-
-#include "distributed_protocol.h"
 /**************************************************************************************************
   Macros
 **************************************************************************************************/
@@ -295,7 +293,7 @@ static void AmdtpsSendTestData(void)
     *(uint32_t*)pData = counter;
 
 //    status = AmdtpsSendPacket(AMDTP_PKT_TYPE_DATA, false, true, data, sizeof(data));
-    status = AmdtpsSendPacket(AMDTP_PKT_TYPE_DATA, false, false, data, AttGetMtu(1) - 11, 1);
+    status = AmdtpsSendPacket(AMDTP_PKT_TYPE_DATA, false, false, data, AttGetMtu(1) - 11);
     if (status != AMDTP_STATUS_SUCCESS)
     {
         APP_TRACE_INFO1("AmdtpsSendTestData() failed, status = %d\n", status);
@@ -673,7 +671,7 @@ static void amdtpProcMsg(amdtpMsg_t *pMsg)
 /*************************************************************************************************/
 // callback function when receiving complete client data
 /*************************************************************************************************/
-void amdtpDtpRecvCback(uint8_t * buf, uint16_t len, dmConnId_t connId)
+void amdtpDtpRecvCback(uint8_t * buf, uint16_t len)
 {
 #ifdef MEASURE_THROUGHPUT
     static bool measTpStarted = false;
@@ -684,32 +682,28 @@ void amdtpDtpRecvCback(uint8_t * buf, uint16_t len, dmConnId_t connId)
     APP_TRACE_INFO0("-----------AMDTP Received data--------------\n");
     APP_TRACE_INFO3("len = %d, buf[0] = %d, buf[1] = %d\n", len, buf[0], buf[1]);
 #endif
-
-//     if (buf[0] == 1 && distributionProtocolTaskHandle == NULL)
-//     {
-//         APP_TRACE_INFO0("send test data\n");
-//         AmdtpsSendTestData();
-//     }
-//     else if (buf[0] == 2 && distributionProtocolTaskHandle == NULL)
-//     {
-//         APP_TRACE_INFO0("send test data stop\n");
-//         sendDataContinuously = false;
-//     } else if (distributionProtocolTaskHandle != NULL) {
-  
-  DpRecvCb(buf, len, connId);
-//     }
-//     else
-//     {
-// #ifdef MEASURE_THROUGHPUT
-//         gTotalDataBytesRecev += len;
-//         // start throughput calculation timer once when receiving client data
-//         if (!measTpStarted)
-//         {
-//             measTpStarted = true;
-//             WsfTimerStartSec(&measTpTimer, 1);
-//         }
-// #endif
-//     }
+    if (buf[0] == 1)
+    {
+        APP_TRACE_INFO0("send test data\n");
+        AmdtpsSendTestData();
+    }
+    else if (buf[0] == 2)
+    {
+        APP_TRACE_INFO0("send test data stop\n");
+        sendDataContinuously = false;
+    }
+    else
+    {
+#ifdef MEASURE_THROUGHPUT
+        gTotalDataBytesRecev += len;
+        // start throughput calculation timer once when receiving client data
+        if (!measTpStarted)
+        {
+            measTpStarted = true;
+            WsfTimerStartSec(&measTpTimer, 1);
+        }
+#endif
+    }
 }
 
 /**
@@ -717,7 +711,7 @@ void amdtpDtpRecvCback(uint8_t * buf, uint16_t len, dmConnId_t connId)
  * 
  * @param status 
  */
-void amdtpDtpTransCback(eAmdtpStatus_t status, dmConnId_t connId)
+void amdtpDtpTransCback(eAmdtpStatus_t status)
 {
     // APP_TRACE_INFO1("amdtpDtpTransCback status = %d\n", status);
     if (status == AMDTP_STATUS_SUCCESS && sendDataContinuously)

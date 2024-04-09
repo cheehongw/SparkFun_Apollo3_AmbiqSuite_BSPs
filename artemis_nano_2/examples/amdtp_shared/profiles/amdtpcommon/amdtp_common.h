@@ -52,7 +52,6 @@
 
 #include "wsf_types.h"
 #include "wsf_timer.h"
-#include "dm_api.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -64,7 +63,7 @@ extern "C"
 // Macro definitions
 //
 //*****************************************************************************
-#define AMDTP_MAX_PAYLOAD_SIZE          2048 * 4//512
+#define AMDTP_MAX_PAYLOAD_SIZE          2048//512
 #define AMDTP_PACKET_SIZE               (AMDTP_MAX_PAYLOAD_SIZE + AMDTP_PREFIX_SIZE_IN_PKT + AMDTP_CRC_SIZE_IN_PKT)    // Bytes
 #define AMDTP_LENGTH_SIZE_IN_PKT        2
 #define AMDTP_HEADER_SIZE_IN_PKT        2
@@ -159,18 +158,18 @@ typedef struct
 amdtpPacket_t;
 
 /*! Application data reception callback */
-typedef void (*amdtpRecvCback_t)(uint8_t *buf, uint16_t len, dmConnId_t connId);
+typedef void (*amdtpRecvCback_t)(uint8_t *buf, uint16_t len);
 
 /*! Application data transmission result callback */
-typedef void (*amdtpTransCback_t)(eAmdtpStatus_t status, dmConnId_t connId);
+typedef void (*amdtpTransCback_t)(eAmdtpStatus_t status);
 
 typedef void (*amdtp_reply_func_t)(eAmdtpStatus_t status, uint8_t *data, uint16_t len);
 
 typedef void (*amdtp_packet_handler_func_t)(eAmdtpPktType_t type, uint16_t len, uint8_t *buf);
 
-typedef eAmdtpStatus_t (*amdtp_ack_sender_func_t)(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t *buf, uint16_t len, dmConnId_t connId);
+typedef eAmdtpStatus_t (*amdtp_ack_sender_func_t)(eAmdtpPktType_t type, bool_t encrypted, bool_t enableACK, uint8_t *buf, uint16_t len);
 
-typedef void (*amdtp_data_sender_func_t)(uint8_t *buf, uint16_t len, dmConnId_t connId);
+typedef void (*amdtp_data_sender_func_t)(uint8_t *buf, uint16_t len);
 
 typedef struct
 {
@@ -188,7 +187,6 @@ typedef struct
     amdtpTransCback_t           transCback;             // application callback for tx complete status
     amdtp_data_sender_func_t    data_sender_func;
     amdtp_ack_sender_func_t     ack_sender_func;
-    dmConnId_t                  connId;
 }
 amdtpCb_t;
 
