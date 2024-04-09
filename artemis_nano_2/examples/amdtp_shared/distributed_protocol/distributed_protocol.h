@@ -35,6 +35,8 @@ typedef enum eDpTaskStatus {
 
 #define DP_BUF_SIZE                 100000
 
+
+
 typedef struct {
     eDpPktType_t type;
     eDpTaskStatus_t status;
@@ -53,11 +55,13 @@ typedef struct {
 } Task;
 
 
+// typedef void (*SendFunction)(uint8_t *buf, uint16_t len);
+
 typedef struct {
     dmConnId_t          connId;                 // Connection ID of the client
     Task*               assignedTask;           // Task assigned to the client
     SemaphoreHandle_t   receivedReplySem;       // Flag to indicate if the client has replied
-    StaticSemaphore_t   xSemaphoreBuffer; // Semaphore structure
+    StaticSemaphore_t   xSemaphoreBuffer;       // Semaphore structure
 } Client;
 
 // application layer to initialize tasks
@@ -72,12 +76,12 @@ void removeConnectedClient(dmConnId_t connId);
 void DpRecvCb(uint8_t *buf, uint16_t len, dmConnId_t connId);
 
 extern void copyTaskDataToSendBuffer(uint8_t *startOfData, Task *task);
+extern void initServerTask(Task *task);
 extern void executeTask(Task *task);
 extern void initClientTasks(Task *tasks, size_t *numTasks);
-extern void initServerTask(Task *task);
 extern void reassembleTaskResults(Task *tasks, size_t numTasksCompleted);
 
 
 extern TaskHandle_t distributionProtocolTaskHandle;
 
-#endif // DISTRIBUTED_PROTOCOL_H
+#endif // DISTRIBUTED_PROTOCOL_H`
