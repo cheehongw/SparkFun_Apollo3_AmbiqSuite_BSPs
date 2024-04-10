@@ -85,7 +85,9 @@ typedef enum
 typedef enum
 {
     GATT_MENU_ID_NONE = 0,
-    GATT_MENU_ID_TBD,
+    GATT_MENU_ID_RSSI_START,
+    GATT_MENU_ID_RSSI_STOP,
+    GATT_MENU_ID_SET_POWER_LEVEL,
     GATT_MENU_ID_MAX
 }eGattMenuId;
 

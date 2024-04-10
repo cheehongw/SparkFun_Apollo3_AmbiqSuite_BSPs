@@ -71,7 +71,8 @@ char gapMenuContent[GAP_MENU_ID_MAX][32] = {
 };
 
 char gattMenuContent[GATT_MENU_ID_MAX][32] = {
-    "1. TBD",
+    "1. Start RSSI",
+    "2. Stop RSSI",
 };
 
 char amdtpMenuContent[AMDTP_MENU_ID_MAX][64] = {
@@ -200,6 +201,26 @@ static void handleAMDTPSlection(void)
     }
 }
 
+static void handleGATTSelection(void)
+{
+    eGattMenuId id;
+    id = (eGattMenuId)(menuRxData[0] - '0');
+
+    switch (id)
+    {
+        case GATT_MENU_ID_RSSI_START:
+            am_menu_printf("start to get rssi\r\n");
+            getRssi();
+            break;
+        case GATT_MENU_ID_RSSI_STOP:
+            am_menu_printf("stop to get rssi\r\n");
+            getRssiStop();
+            break;
+        default:
+            break;
+    }
+}
+
 static void handleSelection(void)
 {
     if (isSelectionHome())
@@ -218,6 +239,7 @@ static void handleSelection(void)
             handleGAPSlection();
             break;
         case BLE_MENU_ID_GATT:
+            handleGATTSelection();
         break;
         case BLE_MENU_ID_AMDTP:
             handleAMDTPSlection();

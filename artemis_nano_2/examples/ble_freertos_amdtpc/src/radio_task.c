@@ -95,7 +95,6 @@
 #include "amdtp_api.h"
 #include "amdtpc_api.h"
 #include "app_ui.h"
-#include "distributed_sum.h"
 
 #ifdef BLE_MENU
 #include "ble_menu.h"
@@ -346,9 +345,6 @@ RadioTask(void *pvParameters)
     //     uint8_t bd_addr[6] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
     //     HciVscSetCustom_BDAddr(&bd_addr[0]);
     // }
-
-    // initialize and clear all existing clients in distributed protocol
-    initializeDistributedProtocol();
 
     //
     // Start the "Amdtp" profile.

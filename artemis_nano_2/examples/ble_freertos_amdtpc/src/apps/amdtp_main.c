@@ -71,6 +71,7 @@
 #include "calc128.h"
 #include "ble_menu.h"
 #include "gatt_api.h"
+#include <dm_conn.h>
 
 
 /**************************************************************************************************
@@ -87,6 +88,7 @@ enum
 #ifdef MEASURE_THROUGHPUT
   AMDTP_MEAS_TP_TIMER_IND,
 #endif
+  RSSI_TIMER_IND,
 };
 
 /**************************************************************************************************
@@ -103,6 +105,8 @@ struct
   uint8_t           discState;                      /*! Service discovery state */
   uint8_t           hdlListLen;                     /*! Cached handle list length */
 } amdtpcCb;
+
+wsfTimer_t        rssiTimer;
 
 /*! connection control block */
 typedef struct
@@ -713,6 +717,27 @@ void amdtpDtpTransCback(eAmdtpStatus_t status)
     }
 }
 
+bool g_readRSSI = false;
+void getRssi(void) 
+{
+
+  dmConnId_t connId;
+  if ((connId = AppConnIsOpen()) == DM_CONN_ID_NONE)
+  {
+      APP_TRACE_INFO0("AmdtpcSendData() no connection\n");
+      return;
+  }
+  rssiTimer.handlerId = amdtpcCb.handlerId;
+  DmConnReadRssi(connId);
+  WsfTimerStartSec(&rssiTimer, 1);
+
+}
+
+
+void getRssiStop(void) {
+  g_readRSSI = false;
+  am_util_stdio_printf("RSSI stop\n");
+}
 /*************************************************************************************************/
 /*!
  *  \fn     amdtpcDiscCback
@@ -817,7 +842,7 @@ static void showThroughput(void)
 {
     if ( gTotalDataBytesRecev > 0 )
     {
-        APP_TRACE_INFO1("throughput : %d Bytes/s\n", gTotalDataBytesRecev);
+        am_util_stdio_printf("throughput : %d Bytes/s\n", gTotalDataBytesRecev);
         gTotalDataBytesRecev = 0;
         WsfTimerStartSec(&measTpTimer, 1);
     }
@@ -949,6 +974,17 @@ static void amdtpcProcMsg(dmEvt_t *pMsg)
     case DM_ADV_NEW_ADDR_IND:
       break;
 
+    case DM_CONN_READ_RSSI_IND:
+      am_menu_printf("RSSI: %d", pMsg->readRssi.rssi);
+      break;
+    
+    case RSSI_TIMER_IND:
+      if (g_readRSSI)
+      {
+        getRssi();
+      }
+      break;
+
     case DM_VENDOR_SPEC_CMD_CMPL_IND:
       {
         #if defined(AM_PART_APOLLO) || defined(AM_PART_APOLLO2)
@@ -1007,6 +1043,8 @@ void AmdtpcHandlerInit(wsfHandlerId_t handlerId)
 
   /* store handler ID */
   amdtpcCb.handlerId = handlerId;
+  rssiTimer.handlerId = handlerId;
+  rssiTimer.msg.event = RSSI_TIMER_IND;
 
   /* set handle list length */
   amdtpcCb.hdlListLen = AMDTPC_DISC_HDL_LIST_LEN;

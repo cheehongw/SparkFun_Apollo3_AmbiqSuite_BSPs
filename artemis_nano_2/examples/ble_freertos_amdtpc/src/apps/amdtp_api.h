@@ -105,6 +105,9 @@ void AmdtpcSendTestData(void);
 void AmdtpcSendTestDataStop(void);
 void AmdtpcRequestServerSend(void);
 void AmdtpcRequestServerSendStop(void);
+void getRssi(void);
+void getRssiStop(void);
+
 
 #ifdef __cplusplus
 };

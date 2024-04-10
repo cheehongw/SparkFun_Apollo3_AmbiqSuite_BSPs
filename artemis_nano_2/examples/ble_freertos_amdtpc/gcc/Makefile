@@ -465,9 +465,9 @@ SRC += amdtp_common.c
 SRC += ble_menu.c
 SRC += amdtp_main.c
 SRC += amdtpc_main.c
-SRC += distributed_protocol.c
+# SRC += distributed_protocol.c
 # SRC += distributed_sum.c
-SRC += matrix_mult.c
+# SRC += matrix_mult.c
 
 
 CSRC = $(filter %.c,$(SRC))
