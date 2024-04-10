@@ -718,8 +718,12 @@ void amdtpDtpTransCback(eAmdtpStatus_t status)
 }
 
 bool g_readRSSI = false;
+int count = 0;
+int rollingRssi = 0;
+
 void getRssi(void) 
 {
+  g_readRSSI = true;
 
   dmConnId_t connId;
   if ((connId = AppConnIsOpen()) == DM_CONN_ID_NONE)
@@ -736,6 +740,8 @@ void getRssi(void)
 
 void getRssiStop(void) {
   g_readRSSI = false;
+  count = 0;
+  rollingRssi = 0;
   am_util_stdio_printf("RSSI stop\n");
 }
 /*************************************************************************************************/
@@ -975,7 +981,10 @@ static void amdtpcProcMsg(dmEvt_t *pMsg)
       break;
 
     case DM_CONN_READ_RSSI_IND:
-      am_menu_printf("RSSI: %d", pMsg->readRssi.rssi);
+      count++;
+      rollingRssi += pMsg->readRssi.rssi;
+      am_menu_printf("rolling RSSI: %.2f, count: %d \n", (float) rollingRssi/count, count);
+      
       break;
     
     case RSSI_TIMER_IND:

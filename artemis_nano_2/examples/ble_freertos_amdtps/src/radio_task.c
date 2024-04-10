@@ -84,8 +84,6 @@
 #include "am_util.h"
 #include "am_bsp.h"
 
-#include "distributed_protocol.h"
-
 #include "hci_apollo_config.h"
 #include "wsf_msg.h"
 
@@ -305,7 +303,12 @@ RadioTask(void *pvParameters)
         HciVscSetCustom_BDAddr(&bd_addr[0]);
     }
 
-    initializeDistributedProtocol();
+    // HciVscSetRfPowerLevelEx(15);     //-3.0 dbm
+    // HciVscSetRfPowerLevelEx(8);         // 0dBm
+    // HciVscSetRfPowerLevelEx(5);      // -5 dBm
+    HciVscSetRfPowerLevelEx(4);      // -10 dBm
+
+
 
     //
     // Start the "Amdtp" profile.
