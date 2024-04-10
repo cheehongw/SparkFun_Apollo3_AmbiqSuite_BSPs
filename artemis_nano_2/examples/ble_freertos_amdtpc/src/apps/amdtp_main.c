@@ -690,20 +690,34 @@ void AmdtpcRequestServerSendStop(void)
     }
 }
 
+int packet_seen = 0;
+int total_packets_skipped = 0;
+
 void amdtpDtpRecvCback(uint8_t * buf, uint16_t len)
 {
     // reception callback
     // print the received data
-#if 1
-    APP_TRACE_INFO0("-----------AMDTP Received data--------------\n");
-    APP_TRACE_INFO3("len = %d, buf[0] = %d, buf[1] = %d\n", len, buf[0], buf[1]);
-#endif
+// #if 1
+//     APP_TRACE_INFO0("-----------AMDTP Received data--------------\n");
+//     APP_TRACE_INFO3("len = %d, buf[0] = %d, buf[1] = %d\n", len, buf[0], buf[1]);
+// #endif
 #ifdef MEASURE_THROUGHPUT
     gTotalDataBytesRecev += len;
+    int curr_packet = *((uint32_t*) buf);
+    
+    int packets_skipped = curr_packet - packet_seen - 1;
+    if (packets_skipped > 0)
+    {
+        APP_TRACE_INFO1("Packets skipped: %d\n", packets_skipped);
+        total_packets_skipped += packets_skipped;
+    }
+
+    packet_seen = curr_packet;
+
     if (!measTpStarted)
     {
         measTpStarted = true;
-        WsfTimerStartSec(&measTpTimer, 1);
+        WsfTimerStartSec(&measTpTimer, 10);
     }
 #endif
 }
@@ -848,9 +862,10 @@ static void showThroughput(void)
 {
     if ( gTotalDataBytesRecev > 0 )
     {
-        am_util_stdio_printf("throughput : %d Bytes/s\n", gTotalDataBytesRecev);
+        am_util_stdio_printf("bytes: %d throughput : %0.2f Bytes/s, packets_skipped %d \n", gTotalDataBytesRecev, (float) gTotalDataBytesRecev/10, total_packets_skipped);
         gTotalDataBytesRecev = 0;
-        WsfTimerStartSec(&measTpTimer, 1);
+        total_packets_skipped = 0;
+        WsfTimerStartSec(&measTpTimer, 10);
     }
     else if ( gTotalDataBytesRecev == 0 )
     {
